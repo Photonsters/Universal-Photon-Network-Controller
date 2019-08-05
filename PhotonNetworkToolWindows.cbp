@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="PhotonNetworkTool" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="MINGW/x64/Debug/PhotonTool" prefix_auto="1" extension_auto="1" />
+				<Option object_output="MINGW/obj/Debug/" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="MINGW/x64/Release/PhotonTool" prefix_auto="1" extension_auto="1" />
+				<Option object_output="MINGW/obj/Release/" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-DWXUSINGDLL" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+					<Add library="libwx_baseu_net-3.1.dll.a" />
+					<Add library="libwx_baseu-3.1.dll.a" />
+					<Add library="libwx_mswu_adv-3.1.dll.a" />
+					<Add library="libwx_mswu_core-3.1.dll.a" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add directory="F:/dev/wxwigets3.1.2/wxinstall/include/wx-3.1" />
+			<Add directory="F:/dev/wxwigets3.1.2/wxinstall/lib/wx/include/msw-unicode-3.1" />
+		</Compiler>
+		<Linker>
+			<Add directory="F:/dev/wxwigets3.1.2/wxinstall/lib" />
+		</Linker>
+		<Unit filename="MyThread.h" />
+		<Unit filename="NewFrame.cpp" />
+		<Unit filename="NewFrame.h" />
+		<Unit filename="Resources.rc">
+			<Option compilerVar="WINDRES" />
+		</Unit>
+		<Unit filename="wxsmith/NewFrame.wxs" />
+		<Extensions>
+			<code_completion>
+				<search_path add="F:\dev\wxwigets3.1.2\wxinstall\include\wx-3.1" />
+				<search_path add="F:\dev\wxwigets3.1.2\wxinstall\include\wx-3.1\wx" />
+			</code_completion>
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+			<wxsmith version="1">
+				<gui name="wxWidgets" src="MyApp.cpp" main="-- None --" init_handlers="necessary" language="CPP" />
+				<resources>
+					<wxFrame wxs="wxsmith/NewFrame.wxs" src="NewFrame.cpp" hdr="NewFrame.h" fwddecl="0" i18n="1" name="NewFrame" language="CPP" />
+				</resources>
+			</wxsmith>
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

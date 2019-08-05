@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<wxsmith>
+	<object class="wxFrame" name="NewFrame">
+		<title>Photon Network Controller</title>
+		<size>334,491</size>
+		<id_arg>0</id_arg>
+		<style>wxDEFAULT_DIALOG_STYLE|wxMINIMIZE_BOX</style>
+		<object class="wxPanel" name="ID_PANEL1" variable="Panel1" member="yes">
+			<pos>224,320</pos>
+			<size>334,488</size>
+			<object class="wxStaticBox" name="ID_STATICBOX1" variable="StaticBox1" member="yes">
+				<label>Connection Settings</label>
+				<pos>8,8</pos>
+				<size>320,80</size>
+			</object>
+			<object class="wxTextCtrl" name="ID_TEXTCTRL1" variable="txtIP" member="yes">
+				<value>192.168.1.222</value>
+				<pos>208,24</pos>
+				<size>112,21</size>
+			</object>
+			<object class="wxStaticText" name="ID_STATICTEXT1" variable="StaticText1" member="yes">
+				<label>IP Address</label>
+				<pos>16,28</pos>
+			</object>
+			<object class="wxButton" name="ID_BUTTON1" variable="btnConnect" member="yes">
+				<label>Connect</label>
+				<pos>235,54</pos>
+				<size>85,26</size>
+				<handler function="OnbtnConnectClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxStaticText" name="ID_STATICTEXT2" variable="lblStatus" member="yes">
+				<label>Not Connected</label>
+				<pos>16,60</pos>
+			</object>
+			<object class="wxStaticBox" name="ID_STATICBOX2" variable="StaticBox2" member="yes">
+				<label>Print Status</label>
+				<pos>8,96</pos>
+				<size>320,112</size>
+			</object>
+			<object class="wxButton" name="ID_BUTTON2" variable="btnStart" member="yes">
+				<label>Start</label>
+				<pos>16,118</pos>
+				<size>85,26</size>
+				<handler function="OnbtnStartClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxButton" name="ID_BUTTON3" variable="btnPause" member="yes">
+				<label>Pause</label>
+				<pos>127,118</pos>
+				<size>85,26</size>
+				<handler function="OnbtnPauseClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxButton" name="ID_BUTTON4" variable="btnStop" member="yes">
+				<label>Stop</label>
+				<pos>235,118</pos>
+				<size>85,26</size>
+				<handler function="OnbtnStopClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxGauge" name="ID_GAUGE1" variable="PrintProgress" member="yes">
+				<range>1000</range>
+				<pos>16,170</pos>
+				<size>304,24</size>
+			</object>
+			<object class="wxStaticText" name="ID_STATICTEXT3" variable="lblPercentDone" member="yes">
+				<label>Percent Done</label>
+				<pos>16,152</pos>
+			</object>
+			<object class="wxStaticBox" name="ID_STATICBOX3" variable="StaticBox3" member="yes">
+				<label>Files</label>
+				<pos>8,216</pos>
+				<size>320,251</size>
+			</object>
+			<object class="wxButton" name="ID_BUTTON5" variable="btnDelete" member="yes">
+				<label>Delete</label>
+				<pos>16,392</pos>
+				<size>85,26</size>
+				<handler function="OnbtnDeleteClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxButton" name="ID_BUTTON6" variable="btnRefresh" member="yes">
+				<label>Refresh</label>
+				<pos>125,392</pos>
+				<size>85,26</size>
+				<handler function="OnbtnRefreshClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxButton" name="ID_BUTTON7" variable="btnUpload" member="yes">
+				<label>Upload</label>
+				<pos>235,392</pos>
+				<size>85,26</size>
+				<handler function="OnbtnUploadClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxButton" name="ID_BUTTON8" variable="btnDownload" member="yes">
+				<label>Download</label>
+				<pos>235,432</pos>
+				<size>85,26</size>
+				<handler function="OnbtnDownloadClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxGauge" name="ID_GAUGE2" variable="progressFile" member="yes">
+				<pos>16,433</pos>
+				<size>212,24</size>
+			</object>
+			<object class="wxListCtrl" name="ID_LISTCTRL1" variable="ListCtrl1" member="yes">
+				<pos>16,232</pos>
+				<size>304,152</size>
+				<style>wxLC_REPORT|wxLC_SINGLE_SEL|wxSUNKEN_BORDER</style>
+			</object>
+		</object>
+		<object class="wxTimer" name="ID_TIMER1" variable="PollTimer" member="yes">
+			<handler function="OnPollTimerTrigger" entry="EVT_TIMER" />
+		</object>
+		<object class="wxStatusBar" name="ID_STATUSBAR1" variable="StatusBar1" member="yes">
+			<fields>1</fields>
+			<widths>-10</widths>
+			<styles>wxSB_NORMAL</styles>
+		</object>
+		<object class="wxTimer" name="ID_TIMER2" variable="WatchDogTimer" member="yes">
+			<oneshot>1</oneshot>
+			<handler function="OnWatchDogTimerTrigger" entry="EVT_TIMER" />
+		</object>
+	</object>
+</wxsmith>
