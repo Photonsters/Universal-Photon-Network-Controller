@@ -394,30 +394,45 @@ void NewFrame::setStatusMessages(wxString message1, wxString message2, wxString 
 }
 void NewFrame::sendCmdToPrinter(wxString cmd)
 {
-	memset(&receivedBuf[0], 0, sizeof(receivedBuf));
-	wxUint32 sendSize = cmd.Length();
-	char* tempBuffer = (char*)malloc(sizeof(char)*(2 + sendSize));
-	strcpy(tempBuffer, (const char*)cmd.mb_str(wxConvUTF8)); // buf will now contain the command
-	tempBuffer[sendSize] = '\0';
-	tempBuffer[sendSize + 1] = '\0';
-	WatchDogTimer.Start(2000, true);
-	if (sock->SendTo(*addrPeer, tempBuffer, sendSize).LastCount() != sendSize)
-	{
-		wxMessageBox("ERROR: failed to send data");
-		return;
-	}
-	free(tempBuffer);
+    try
+    {
+        memset(&receivedBuf[0], 0, sizeof(receivedBuf));
+        wxUint32 sendSize = cmd.Length();
+        char* tempBuffer = (char*)malloc(sizeof(char)*(2 + sendSize));
+        strcpy(tempBuffer, (const char*)cmd.mb_str(wxConvUTF8)); // buf will now contain the command
+        tempBuffer[sendSize] = '\0';
+        tempBuffer[sendSize + 1] = '\0';
+        WatchDogTimer.Start(2000, true);
+        if (sock->SendTo(*addrPeer, tempBuffer, sendSize).LastCount() != sendSize)
+        {
+            wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+            return;
+        }
+        free(tempBuffer);
+    }
+    catch(int e)
+    {
+       wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+    }
+
 }
 
 void NewFrame::sendCmdToPrinter(uint8_t* cmd, unsigned int sendSize)
 {
-	memset(&receivedBuf[0], 0, sizeof(receivedBuf));
-	WatchDogTimer.Start(2000, true);
-	if (sock->SendTo(*addrPeer, cmd, sendSize).LastCount() != sendSize)
-	{
-		wxMessageBox("ERROR: failed to send data");
-		return;
-	}
+    try
+    {
+        memset(&receivedBuf[0], 0, sizeof(receivedBuf));
+        WatchDogTimer.Start(2000, true);
+        if (sock->SendTo(*addrPeer, cmd, sendSize).LastCount() != sendSize)
+        {
+            wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+            return;
+        }
+    }
+    catch(int e)
+    {
+       wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+    }
 }
 
 void NewFrame::getAsyncReply()
