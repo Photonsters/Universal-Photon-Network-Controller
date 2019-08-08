@@ -297,7 +297,7 @@ double getValue(wxString str, wxString prefix, double default_val, wxString ahea
 		}
 		return default_val;
 	}
-	catch (const std::runtime_error)
+	catch(int e)
 	{
 		return default_val;
 	}
@@ -321,7 +321,7 @@ void NewFrame::connectToPrinter(wxString hostname)
 	//wxDatagramSocket sock(addrLocal);
 	if (!sock->IsOk())
 	{
-		wxLogMessage("ERROR: failed to create UDP socket");
+		wxMessageBox(_("Failed to create UDP socket"), _("Error"), wxICON_ERROR);
 		return;
 	}
 
@@ -405,14 +405,14 @@ void NewFrame::sendCmdToPrinter(wxString cmd)
         WatchDogTimer.Start(2000, true);
         if (sock->SendTo(*addrPeer, tempBuffer, sendSize).LastCount() != sendSize)
         {
-            wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+            wxMessageBox(_("Failed to send data"), _("Error"), wxICON_ERROR);
             return;
         }
         free(tempBuffer);
     }
     catch(int e)
     {
-       wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+       wxMessageBox(_("Failed to send data"), _("Error"), wxICON_ERROR);
     }
 
 }
