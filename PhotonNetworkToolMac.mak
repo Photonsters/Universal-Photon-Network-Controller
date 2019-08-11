@@ -5,10 +5,10 @@
 
 WORKDIR = `pwd`
 
-CC = gcc
-CXX = g++ -mmacosx-version-min=10.10
+CC = gcc -mmacosx-version-min=10.8
+CXX = g++ -mmacosx-version-min=10.8
 AR = ar
-LD = g++
+LD = g++ -mmacosx-version-min=10.8 -o
 WINDRES =
 
 INC = -I/usr/local/lib/wx/include/osx_cocoa-unicode-3.1 -I/usr/local/include/wx-3.1
@@ -19,7 +19,7 @@ LIB =
 LDFLAGS = 
 
 INC_DEBUG = $(INC)
-CFLAGS_DEBUG = $(CFLAGS) -g
+CFLAGS_DEBUG = $(CFLAGS)
 RESINC_DEBUG = $(RESINC)
 RCFLAGS_DEBUG = $(RCFLAGS)
 LIBDIR_DEBUG = $(LIBDIR)
@@ -30,19 +30,19 @@ DEP_DEBUG =
 OUT_DEBUG = Mac/x64/Debug/PhotonTool
 
 INC_RELEASE = $(INC)
-CFLAGS_RELEASE = $(CFLAGS) -O2 -arch x86_64 -fno-common -fvisibility=hidden -fvisibility-inlines-hidden -DWXUSINGDLL -D_FILE_OFFSET_BITS=64 -D__WXMAC__ -D__WXOSX__ -D__WXOSX_COCOA__ 
+CFLAGS_RELEASE = $(CFLAGS) -O2 -fno-common -fvisibility=hidden -fvisibility-inlines-hidden -DWXUSINGDLL  -D__WXOSX_COCOA__ -D_FILE_OFFSET_BITS=64 -arch x86_64
 RESINC_RELEASE = $(RESINC)
 RCFLAGS_RELEASE = $(RCFLAGS)
 LIBDIR_RELEASE = $(LIBDIR)
-LIB_RELEASE = $(LIB)-framework IOKit -framework Carbon -framework Cocoa -framework AudioToolbox -framework System -framework OpenGL -lwx_osx_cocoau_xrc-3.1 -lwx_osx_cocoau_html-3.1 -lwx_osx_cocoau_qa-3.1 -lwx_osx_cocoau_core-3.1 -lwx_baseu_xml-3.1 -lwx_baseu_net-3.1 -lwx_baseu-3.1
+LIB_RELEASE = $(LIB)-framework IOKit -framework Carbon -framework Cocoa -framework System -lwx_osx_cocoau_core-3.1 -lwx_baseu_net-3.1 -lwx_baseu-3.1 
 LDFLAGS_RELEASE = $(LDFLAGS)
 OBJDIR_RELEASE = obj/Release
 DEP_RELEASE = 
 OUT_RELEASE = Mac/x64/Release/PhotonTool
 
-OBJ_DEBUG = $(OBJDIR_DEBUG)/NewFrame.o
+OBJ_DEBUG = $(OBJDIR_DEBUG)/NewFrame.o  $(OBJDIR_DEBUG)/ping.o
 
-OBJ_RELEASE = $(OBJDIR_RELEASE)/NewFrame.o
+OBJ_RELEASE = $(OBJDIR_RELEASE)/NewFrame.o $(OBJDIR_RELEASE)/ping.o
 
 all: debug release
 
@@ -61,6 +61,8 @@ out_debug: before_debug $(OBJ_DEBUG) $(DEP_DEBUG)
 
 $(OBJDIR_DEBUG)/NewFrame.o: NewFrame.cpp
 	$(CXX) $(CFLAGS_DEBUG) $(INC_DEBUG) -c NewFrame.cpp -o $(OBJDIR_DEBUG)/NewFrame.o
+$(OBJDIR_DEBUG)/ping.o: ping.cpp
+	$(CXX) $(CFLAGS_DEBUG) $(INC_DEBUG) -c ping.cpp -o $(OBJDIR_DEBUG)/ping.o	
 
 clean_debug: 
 	rm -f $(OBJ_DEBUG) $(OUT_DEBUG)
@@ -80,6 +82,8 @@ out_release: before_release $(OBJ_RELEASE) $(DEP_RELEASE)
 
 $(OBJDIR_RELEASE)/NewFrame.o: NewFrame.cpp
 	$(CXX) $(CFLAGS_RELEASE) $(INC_RELEASE) -c NewFrame.cpp -o $(OBJDIR_RELEASE)/NewFrame.o
+$(OBJDIR_RELEASE)/ping.o: ping.cpp
+	$(CXX) $(CFLAGS_RELEASE) $(INC_RELEASE) -c ping.cpp -o $(OBJDIR_RELEASE)/ping.o	
 
 clean_release: 
 	rm -f $(OBJ_RELEASE) $(OUT_RELEASE)

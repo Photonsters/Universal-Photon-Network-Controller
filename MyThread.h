@@ -16,7 +16,6 @@ class MyThread : public wxThread
 public:
 	MyThread(wxEvtHandler* pParent);
 private:
-	int m_param;
 	void* Entry();
 protected:
 	wxEvtHandler * m_pParent;

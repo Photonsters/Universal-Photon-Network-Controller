@@ -121,7 +121,7 @@ private:
 	void sendCmdToPrinter(wxString);
 	void sendCmdToPrinter(uint8_t*, unsigned int);
 	void updatefileList();
-	void connectToPrinter(wxString);
+	bool connectToPrinter(wxString);
 	void disconnectFromPrinter();
 	//void setStatusMessages(std::array<wxString, 3>);
 	void setStatusMessages(wxString, wxString, wxString);

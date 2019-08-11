@@ -47,6 +47,8 @@
 		<Unit filename="Resources.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
+		<Unit filename="ping.cpp" />
+		<Unit filename="ping.h" />
 		<Unit filename="wxsmith/NewFrame.wxs" />
 		<Extensions>
 			<code_completion>
