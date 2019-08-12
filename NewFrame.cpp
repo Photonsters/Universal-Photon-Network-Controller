@@ -4,6 +4,11 @@
 #include <wx/tokenzr.h>
 #include <wx/file.h>
 #include <wx/process.h>
+#include <wx/stdpaths.h>
+#include <wx/filename.h>
+#include <wx/fileconf.h>
+#include <wx/dir.h>
+#include <wx/filefn.h>
 #include <stdlib.h>
 #include "MyThread.h"
 #include "ping.h"
@@ -244,6 +249,7 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
     Connect(ID_TIMER2,wxEVT_TIMER,(wxObjectEventFunction)&NewFrame::OnWatchDogTimerTrigger);
     //*)
     setStatusMessages(_("Not Connected"), "", "");
+    readSettings();
 }
 
 wxString convertSize(size_t size)
@@ -951,13 +957,43 @@ void NewFrame::updatefileList()
     startList = false;
     getAsyncReply();
 }
+void NewFrame:: saveSettings()
+{
+    wxString ini_Directory = wxStandardPaths::Get().GetUserConfigDir() + wxFileName::GetPathSeparator() + wxString("PhotonTool");
+    if(!wxDir::Exists(ini_Directory))           //create directory if it doesn't exist
+        wxDir::Make(ini_Directory);
+    wxString ini_filename = wxStandardPaths::Get().GetUserConfigDir() + wxFileName::GetPathSeparator() + wxString("PhotonTool")+ wxFileName::GetPathSeparator() + wxString(_("Settings.INI"));
+    wxFileConfig *config = new wxFileConfig( "", "", ini_filename);
+    config->Write( wxT("IP"), addrPeer->IPAddress() );
+    config->Flush();
+    delete config;
+}
+void NewFrame:: readSettings()
+{
+    wxString ini_filename = wxStandardPaths::Get().GetUserConfigDir() + wxFileName::GetPathSeparator() + wxString("PhotonTool")+ wxFileName::GetPathSeparator() + wxString(_("Settings.INI"));
+    if(wxFileExists(ini_filename))
+    {
+        wxFileConfig *config = new wxFileConfig( "", "", ini_filename);
+        wxString savedIP=wxEmptyString;
+        config->Read(wxT("IP"),&savedIP,"192.168.1.222");
+        delete config;
+        txtIP->SetValue(savedIP);
+    }
+    else
+        txtIP->SetValue("192.168.1.222");
+
+}
 void NewFrame::OnbtnConnectClick(wxCommandEvent& event)
 {
     //wxMessageBox(_("Connect to Printer\n"), _("About Connect"), wxOK | wxICON_INFORMATION, this);
     if (!isconnected)            //Connect to the printer if it not connected
     {
         if(connectToPrinter(txtIP->GetValue()))
+        {
             getVersion();
+            saveSettings();
+        }
+
     }
     else
     {
@@ -1047,7 +1083,7 @@ void NewFrame::OnbtnDeleteClick(wxCommandEvent& event)
 void NewFrame::OnbtnRefreshClick(wxCommandEvent& event)
 {
     //wxMessageBox(_("Refresh file list\n"), _("About Refresh"), wxOK | wxICON_INFORMATION, this);
-//	updatefileList();
+	updatefileList();
 //	gcodeCmd.setCommand("M27");
 //	gcodeCmd.setParameter("");
 //	sendCmdToPrinter(gcodeCmd.getCommand());
@@ -1071,6 +1107,7 @@ void NewFrame::OnbtnRefreshClick(wxCommandEvent& event)
 //        }
 //        pclose(pipe);
 //    }
+//readSettings();
 }
 
 void NewFrame::OnbtnUploadClick(wxCommandEvent& event)

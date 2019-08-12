@@ -123,7 +123,8 @@ private:
 	void updatefileList();
 	bool connectToPrinter(wxString);
 	void disconnectFromPrinter();
-	//void setStatusMessages(std::array<wxString, 3>);
+	void saveSettings();
+	void readSettings();
 	void setStatusMessages(wxString, wxString, wxString);
 	wxString isError(wxString);
 	void clearListControl();
