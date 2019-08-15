@@ -143,11 +143,15 @@
   <ItemGroup>
     <ClCompile Include="NewFrame.cpp" />
     <ClCompile Include="ping.cpp" />
+    <ClCompile Include="settings.cpp" />
+    <ClCompile Include="SettingsDialog.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NewFrame.h" />
     <ClInclude Include="MyThread.h" />
     <ClInclude Include="ping.h" />
+    <ClInclude Include="settings.h" />
+    <ClInclude Include="SettingsDialog.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resources.rc" />

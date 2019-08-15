@@ -2,12 +2,13 @@
 #include <wx/string.h>
 #include "ping.h"
 
-bool pingPrinter(wxString ipAddress)
+bool pingPrinter(wxString ipAddress,int Timeout)
 {
+
 #if defined(__WINDOWS__)
-		wxString cmd = wxString("ping -n 1 -w 250 -l 32 ") + ipAddress;
+		wxString cmd = wxString::Format("ping -n 1 -w %d -l 32 ", Timeout) + ipAddress;
 #else
-		wxString cmd = wxString("ping -c 1 -W 250 -s 32 ") + ipAddress;
+		wxString cmd = wxString::Format("ping -c 1 -W %d -s 32 ", Timeout) + ipAddress;
 #endif
     wxArrayString output, errors;
     int code = wxExecute(cmd, output, errors);
@@ -25,8 +26,11 @@ bool pingPrinter(wxString ipAddress)
         #else
             if(line.Find(wxString("packet loss"))!=wxNOT_FOUND)
             {
-
+                #if defined(__WXGTK__)
+                wxString loss = line.BeforeLast('%').AfterLast(',');
+                #else
                 wxString loss = line.AfterLast(',').BeforeFirst('%');
+                #endif
                 double value;
                 if(loss.ToDouble(&value))
                 {

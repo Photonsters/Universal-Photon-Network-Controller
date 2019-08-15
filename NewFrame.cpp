@@ -1,6 +1,5 @@
 #include "NewFrame.h"
 #include <wx/intl.h>
-#include <wx/string.h>
 #include <wx/tokenzr.h>
 #include <wx/file.h>
 #include <wx/process.h>
@@ -12,7 +11,8 @@
 #include <stdlib.h>
 #include "MyThread.h"
 #include "ping.h"
-
+#include "settings.h"
+#include "SettingsDialog.h"
 #define RECV_BUFFER_LENGTH 1290
 wxDatagramSocket *sock;
 wxIPV4address *addrPeer;
@@ -52,7 +52,7 @@ void* MyThread::Entry()
         wxPostEvent(m_pParent, evt);
         return 0;
     }
-    catch (int e)
+    catch (...)
     {
         isRunning = true;
         return 0;
@@ -130,6 +130,7 @@ const long NewFrame::ID_BUTTON7 = wxNewId();
 const long NewFrame::ID_BUTTON8 = wxNewId();
 const long NewFrame::ID_GAUGE2 = wxNewId();
 const long NewFrame::ID_LISTCTRL1 = wxNewId();
+const long NewFrame::ID_BUTTON9 = wxNewId();
 const long NewFrame::ID_PANEL1 = wxNewId();
 const long NewFrame::ID_TIMER1 = wxNewId();
 const long NewFrame::ID_STATUSBAR1 = wxNewId();
@@ -175,8 +176,8 @@ bool MyApp::OnInit()
 
 #if defined(__WINDOWS__)
     frame->SetIcon(wxICON(aaaa));
-#else
-    char path[ PATH_MAX ];
+#elif defined(__WXGTK__)
+    char path[PATH_MAX ];
     char dest[PATH_MAX];
     memset(dest,0,sizeof(dest));
     pid_t pid = getpid();
@@ -208,7 +209,11 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
 
     //(*Initialize(NewFrame)
     Create(parent, wxID_ANY, _("Photon Network Controller"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE|wxMINIMIZE_BOX, _T("wxID_ANY"));
-    SetClientSize(wxSize(334,491));
+	#if defined(__WXGTK__)
+	SetClientSize(wxSize(334, 470));
+	#else
+	SetClientSize(wxSize(334,491));
+	#endif
     Panel1 = new wxPanel(this, ID_PANEL1, wxPoint(224,320), wxSize(334,488), wxTAB_TRAVERSAL, _T("ID_PANEL1"));
     StaticBox1 = new wxStaticBox(Panel1, ID_STATICBOX1, _("Connection Settings"), wxPoint(8,8), wxSize(320,80), 0, _T("ID_STATICBOX1"));
     txtIP = new wxTextCtrl(Panel1, ID_TEXTCTRL1, _("192.168.1.222"), wxPoint(208,24), wxSize(112,21), 0, wxDefaultValidator, _T("ID_TEXTCTRL1"));
@@ -228,6 +233,7 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
     btnDownload = new wxButton(Panel1, ID_BUTTON8, _("Download"), wxPoint(235,432), wxSize(85,26), 0, wxDefaultValidator, _T("ID_BUTTON8"));
     progressFile = new wxGauge(Panel1, ID_GAUGE2, 100, wxPoint(16,433), wxSize(212,24), 0, wxDefaultValidator, _T("ID_GAUGE2"));
     ListCtrl1 = new wxListCtrl(Panel1, ID_LISTCTRL1, wxPoint(16,232), wxSize(304,152), wxLC_REPORT|wxLC_SINGLE_SEL|wxSUNKEN_BORDER, wxDefaultValidator, _T("ID_LISTCTRL1"));
+    btnSettings = new wxButton(Panel1, ID_BUTTON9, _("Settings"), wxPoint(127,54), wxSize(85,26), 0, wxDefaultValidator, _T("ID_BUTTON9"));
     PollTimer.SetOwner(this, ID_TIMER1);
     StatusBar1 = new wxStatusBar(this, ID_STATUSBAR1, 0, _T("ID_STATUSBAR1"));
     int __wxStatusBarWidths_1[1] = { -10 };
@@ -245,6 +251,7 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
     Connect(ID_BUTTON6,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnRefreshClick);
     Connect(ID_BUTTON7,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnUploadClick);
     Connect(ID_BUTTON8,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnDownloadClick);
+    Connect(ID_BUTTON9,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnSettingsClick);
     Connect(ID_TIMER1,wxEVT_TIMER,(wxObjectEventFunction)&NewFrame::OnPollTimerTrigger);
     Connect(ID_TIMER2,wxEVT_TIMER,(wxObjectEventFunction)&NewFrame::OnWatchDogTimerTrigger);
     //*)
@@ -315,7 +322,7 @@ double getValue(wxString str, wxString prefix, double default_val, wxString ahea
         }
         return default_val;
     }
-    catch(int e)
+    catch(...)
     {
         return default_val;
     }
@@ -333,7 +340,7 @@ NewFrame::~NewFrame()
 }
 bool NewFrame::connectToPrinter(wxString hostname)
 {
-    if(pingPrinter(hostname))
+    if(pingPrinter(hostname,(int)pingTimeOut))
     {
         wxIPV4address addrLocal;
         addrLocal.Hostname();
@@ -351,7 +358,7 @@ bool NewFrame::connectToPrinter(wxString hostname)
         addrPeer = NULL;
         addrPeer = new wxIPV4address;
         addrPeer->Hostname(hostname);
-        addrPeer->Service(3000);
+        addrPeer->Service(port);
         isconnected = false;
         startList = false;
         endList = false;
@@ -414,7 +421,7 @@ void NewFrame::disconnectFromPrinter()
         PrintProgress->SetValue(0);
         btnStart->Disable();
     }
-    catch (int e) {}
+    catch (...) {}
 
 }
 void NewFrame::setStatusMessages(wxString message1, wxString message2, wxString message3)
@@ -437,7 +444,7 @@ void NewFrame::sendCmdToPrinter(wxString cmd)
         strcpy(tempBuffer, (const char*)cmd.mb_str(wxConvUTF8)); // buf will now contain the command
         tempBuffer[sendSize] = '\0';
         tempBuffer[sendSize + 1] = '\0';
-        WatchDogTimer.Start(2000, true);
+        WatchDogTimer.Start(replyTimeout, true);
         if (sock->SendTo(*addrPeer, tempBuffer, sendSize).LastCount() != sendSize)
         {
             wxMessageBox(_("Failed to send data"), _("Error"), wxICON_ERROR);
@@ -445,7 +452,7 @@ void NewFrame::sendCmdToPrinter(wxString cmd)
         }
         free(tempBuffer);
     }
-    catch(int e)
+    catch(...)
     {
         wxMessageBox(_("Failed to send data"), _("Error"), wxICON_ERROR);
     }
@@ -457,14 +464,14 @@ void NewFrame::sendCmdToPrinter(uint8_t* cmd, unsigned int sendSize)
     try
     {
         memset(&receivedBuf[0], 0, sizeof(receivedBuf));
-        WatchDogTimer.Start(2000, true);
+        WatchDogTimer.Start(replyTimeout, true);
         if (sock->SendTo(*addrPeer, cmd, sendSize).LastCount() != sendSize)
         {
             wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
             return;
         }
     }
-    catch(int e)
+    catch(...)
     {
         wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
     }
@@ -478,7 +485,7 @@ void NewFrame::getAsyncReply()
         sockThread->Create();
         sockThread->Run();
     }
-    catch (int e) {}
+    catch (...) {}
 }
 
 void NewFrame::getBlockingReply()
@@ -489,7 +496,7 @@ void NewFrame::getBlockingReply()
         numRead = sock->RecvFrom(*addrPeer, receivedBuf, sizeof(receivedBuf)).LastCount();
         WatchDogTimer.Stop();
     }
-    catch (int e) {}
+    catch (...) {}
 }
 
 void NewFrame::clearListControl()
@@ -602,7 +609,7 @@ void NewFrame::handleResponse()
         gcodeCmd.setParameter("");
         beforeByte = 0;
         frameNum = 0;
-        PollTimer.Start(1000);
+        PollTimer.Start(pollingInterval);
         setStatusMessages("prev", _("Printing"), "");
         PrintProgress->SetValue(0);
         //wxMessageBox(wxString::Format(wxT("%s"), receivedText));
@@ -821,7 +828,7 @@ void NewFrame::handleResponse()
         btnPause->Update();
         gcodeCmd.setCommand("M27");
         gcodeCmd.setParameter("");
-        PollTimer.Start(1000);
+        PollTimer.Start(pollingInterval);
         setStatusMessages("prev", _("Printing"), "");
         //wxMessageBox(wxString::Format(wxT("%s"), receivedText));
     }
@@ -964,7 +971,11 @@ void NewFrame:: saveSettings()
         wxDir::Make(ini_Directory);
     wxString ini_filename = wxStandardPaths::Get().GetUserConfigDir() + wxFileName::GetPathSeparator() + wxString("PhotonTool")+ wxFileName::GetPathSeparator() + wxString(_("Settings.INI"));
     wxFileConfig *config = new wxFileConfig( "", "", ini_filename);
-    config->Write( wxT("IP"), addrPeer->IPAddress() );
+    config->Write( wxT("IP"), ipAddress );
+    config->Write(wxT("pingTimeOut"),pingTimeOut);
+    config->Write(wxT("replyTimeout"),replyTimeout);
+    config->Write(wxT("port"),port);
+    config->Write(wxT("pollingInterval"),pollingInterval);
     config->Flush();
     delete config;
 }
@@ -974,10 +985,13 @@ void NewFrame:: readSettings()
     if(wxFileExists(ini_filename))
     {
         wxFileConfig *config = new wxFileConfig( "", "", ini_filename);
-        wxString savedIP=wxEmptyString;
-        config->Read(wxT("IP"),&savedIP,"192.168.1.222");
+        config->Read(wxT("IP"),&ipAddress,"192.168.1.222");
+        config->Read(wxT("pingTimeOut"),&pingTimeOut,100);
+        config->Read(wxT("replyTimeout"),&replyTimeout,2000);
+        config->Read(wxT("port"),&port,3000);
+        config->Read(wxT("pollingInterval"),&pollingInterval,1000);
         delete config;
-        txtIP->SetValue(savedIP);
+        txtIP->SetValue(ipAddress);
     }
     else
         txtIP->SetValue("192.168.1.222");
@@ -991,6 +1005,7 @@ void NewFrame::OnbtnConnectClick(wxCommandEvent& event)
         if(connectToPrinter(txtIP->GetValue()))
         {
             getVersion();
+			ipAddress = addrPeer->IPAddress();
             saveSettings();
         }
 
@@ -1174,7 +1189,7 @@ void NewFrame::OnMyThread(wxCommandEvent& event)
 void NewFrame::OnPollTimerTrigger(wxTimerEvent& event)
 {
     //wxMessageBox("Triggered");
-    if(pingPrinter(addrPeer->IPAddress()))                  //Get status of the printer if it is still connected
+    if(pingPrinter(addrPeer->IPAddress(),(int)pingTimeOut))                  //Get status of the printer if it is still connected
     {
         gcodeCmd.setCommand("M27");
         gcodeCmd.setParameter("");
@@ -1189,7 +1204,7 @@ void NewFrame::OnPollTimerTrigger(wxTimerEvent& event)
           disconnectFromPrinter();
           wxMessageBox(_("Lost connection to the printer."), _("Error"), wxOK | wxICON_ERROR | wxCENTER);
         }
-        catch (int e) {}
+        catch (...) {}
     }
 
 }
@@ -1228,8 +1243,16 @@ void NewFrame::OnWatchDogTimerTrigger(wxTimerEvent& event)
             clearListControl();
             progressFile->SetValue(0);
             PrintProgress->SetValue(0);
-            wxMessageBox(_("Failed to receive any response from the printer in 2 Seconds.\nPlease try re-connecting"), _("Error"), wxOK | wxICON_ERROR | wxCENTER);
+            int replyTimeoutSeconds = (int)(replyTimeout/1000);
+            wxMessageBox(_("Failed to receive any response from the printer in ") + wxString::Format(wxT("%d"), replyTimeoutSeconds) +  _(" Seconds.\nPlease try re-connecting"), _("Error"), wxOK | wxICON_ERROR | wxCENTER);
         }
     }
-    catch (int e) {}
+    catch (...) {}
+}
+
+void NewFrame::OnbtnSettingsClick(wxCommandEvent& event)
+{
+    SettingsDialog *dlg = new SettingsDialog(this);
+    dlg->Show();
+    btnSettings->Disable();
 }

@@ -38,13 +38,15 @@ public:
 
 	NewFrame(wxFrame* parent, wxWindowID id = wxID_ANY, const  wxString Title = "", const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize);
 	virtual ~NewFrame();
-
+	void saveSettings();
+	void readSettings();
 	//(*Declarations(NewFrame)
 	wxButton* btnConnect;
 	wxButton* btnDelete;
 	wxButton* btnDownload;
 	wxButton* btnPause;
 	wxButton* btnRefresh;
+	wxButton* btnSettings;
 	wxButton* btnStart;
 	wxButton* btnStop;
 	wxButton* btnUpload;
@@ -93,6 +95,7 @@ protected:
 	static const long ID_BUTTON8;
 	static const long ID_GAUGE2;
 	static const long ID_LISTCTRL1;
+	static const long ID_BUTTON9;
 	static const long ID_PANEL1;
 	static const long ID_TIMER1;
 	static const long ID_STATUSBAR1;
@@ -112,6 +115,7 @@ private:
 	void OnbtnDownloadClick(wxCommandEvent& event);
 	void OnPollTimerTrigger(wxTimerEvent& event);
 	void OnWatchDogTimerTrigger(wxTimerEvent& event);
+	void OnbtnSettingsClick(wxCommandEvent& event);
 	//*)
 	void getAsyncReply();
 	void OnMyThread(wxCommandEvent& event);
@@ -123,8 +127,6 @@ private:
 	void updatefileList();
 	bool connectToPrinter(wxString);
 	void disconnectFromPrinter();
-	void saveSettings();
-	void readSettings();
 	void setStatusMessages(wxString, wxString, wxString);
 	wxString isError(wxString);
 	void clearListControl();

@@ -1,1 +1,1 @@
-bool pingPrinter(wxString) ;
+bool pingPrinter(wxString,int) ;

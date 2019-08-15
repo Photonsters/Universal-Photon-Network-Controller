@@ -47,6 +47,12 @@
 		<Unit filename="MyThread.h" />
 		<Unit filename="NewFrame.cpp" />
 		<Unit filename="NewFrame.h" />
+		<Unit filename="SettingsDialog.cpp" />
+		<Unit filename="SettingsDialog.h" />
+		<Unit filename="ping.cpp" />
+		<Unit filename="ping.h" />
+		<Unit filename="settings.cpp" />
+		<Unit filename="settings.h" />		
 		<Extensions>
 			<code_completion>
 				<search_path add="/usr/local/include/wx-3.1" />
@@ -59,6 +65,7 @@
 				<gui name="wxWidgets" src="MyApp.cpp" main="-- None --" init_handlers="necessary" language="CPP" />
 				<resources>
 					<wxFrame wxs="wxsmith/NewFrame.wxs" src="NewFrame.cpp" hdr="NewFrame.h" fwddecl="0" i18n="1" name="NewFrame" language="CPP" />
+					<wxDialog wxs="wxsmith/SettingsDialog.wxs" src="SettingsDialog.cpp" hdr="SettingsDialog.h" fwddecl="0" i18n="1" name="SettingsDialog" language="CPP" />
 				</resources>
 			</wxsmith>
 		</Extensions>

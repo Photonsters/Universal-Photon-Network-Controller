@@ -40,9 +40,9 @@ OBJDIR_RELEASE = obj/Release
 DEP_RELEASE = 
 OUT_RELEASE = Mac/x64/Release/PhotonTool
 
-OBJ_DEBUG = $(OBJDIR_DEBUG)/NewFrame.o  $(OBJDIR_DEBUG)/ping.o
+OBJ_DEBUG = $(OBJDIR_DEBUG)/NewFrame.o  $(OBJDIR_DEBUG)/ping.o $(OBJDIR_DEBUG)/settings.o $(OBJDIR_DEBUG)/SettingsDialog.o
 
-OBJ_RELEASE = $(OBJDIR_RELEASE)/NewFrame.o $(OBJDIR_RELEASE)/ping.o
+OBJ_RELEASE = $(OBJDIR_RELEASE)/NewFrame.o $(OBJDIR_RELEASE)/ping.o $(OBJDIR_RELEASE)/settings.o $(OBJDIR_RELEASE)/SettingsDialog.o
 
 all: debug release
 
@@ -63,6 +63,10 @@ $(OBJDIR_DEBUG)/NewFrame.o: NewFrame.cpp
 	$(CXX) $(CFLAGS_DEBUG) $(INC_DEBUG) -c NewFrame.cpp -o $(OBJDIR_DEBUG)/NewFrame.o
 $(OBJDIR_DEBUG)/ping.o: ping.cpp
 	$(CXX) $(CFLAGS_DEBUG) $(INC_DEBUG) -c ping.cpp -o $(OBJDIR_DEBUG)/ping.o	
+$(OBJDIR_DEBUG)/settings.o: settings.cpp
+	$(CXX) $(CFLAGS_DEBUG) $(INC_DEBUG) -c settings.cpp -o $(OBJDIR_DEBUG)/settings.o	
+$(OBJDIR_DEBUG)/SettingsDialog.o: SettingsDialog.cpp
+	$(CXX) $(CFLAGS_DEBUG) $(INC_DEBUG) -c SettingsDialog.cpp -o $(OBJDIR_DEBUG)/SettingsDialog.o		
 
 clean_debug: 
 	rm -f $(OBJ_DEBUG) $(OUT_DEBUG)
@@ -84,7 +88,11 @@ $(OBJDIR_RELEASE)/NewFrame.o: NewFrame.cpp
 	$(CXX) $(CFLAGS_RELEASE) $(INC_RELEASE) -c NewFrame.cpp -o $(OBJDIR_RELEASE)/NewFrame.o
 $(OBJDIR_RELEASE)/ping.o: ping.cpp
 	$(CXX) $(CFLAGS_RELEASE) $(INC_RELEASE) -c ping.cpp -o $(OBJDIR_RELEASE)/ping.o	
-
+$(OBJDIR_RELEASE)/settings.o: settings.cpp
+	$(CXX) $(CFLAGS_RELEASE) $(INC_RELEASE) -c settings.cpp -o $(OBJDIR_RELEASE)/settings.o
+$(OBJDIR_RELEASE)/SettingsDialog.o: SettingsDialog.cpp
+	$(CXX) $(CFLAGS_RELEASE) $(INC_RELEASE) -c SettingsDialog.cpp -o $(OBJDIR_RELEASE)/SettingsDialog.o	
+	
 clean_release: 
 	rm -f $(OBJ_RELEASE) $(OUT_RELEASE)
 	rm -rf Mac/x64/Release
