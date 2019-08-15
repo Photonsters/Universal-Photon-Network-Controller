@@ -102,6 +102,12 @@
 				<size>304,152</size>
 				<style>wxLC_REPORT|wxLC_SINGLE_SEL|wxSUNKEN_BORDER</style>
 			</object>
+			<object class="wxButton" name="ID_BUTTON9" variable="btnSettings" member="yes">
+				<label>Settings</label>
+				<pos>127,54</pos>
+				<size>85,26</size>
+				<handler function="OnbtnSettingsClick" entry="EVT_BUTTON" />
+			</object>
 		</object>
 		<object class="wxTimer" name="ID_TIMER1" variable="PollTimer" member="yes">
 			<handler function="OnPollTimerTrigger" entry="EVT_TIMER" />

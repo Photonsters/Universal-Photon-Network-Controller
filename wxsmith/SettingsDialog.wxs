@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<wxsmith>
+	<object class="wxDialog" name="SettingsDialog">
+		<title>Settings</title>
+		<centered>1</centered>
+		<size>320,168</size>
+		<id_arg>0</id_arg>
+		<style>wxCAPTION|wxDEFAULT_DIALOG_STYLE|wxCLOSE_BOX</style>
+		<handler function="OnClose" entry="EVT_CLOSE" />
+		<object class="wxPanel" name="ID_PANEL1" variable="Panel1" member="yes">
+			<pos>0,0</pos>
+			<size>320,176</size>
+			<object class="wxStaticText" name="ID_STATICTEXT1" variable="StaticText1" member="yes">
+				<label>Ping Timeout in millisecond :</label>
+				<pos>16,16</pos>
+			</object>
+			<object class="wxStaticText" name="ID_STATICTEXT2" variable="StaticText2" member="yes">
+				<label>Reply Timeout in millisecond :</label>
+				<pos>16,41</pos>
+			</object>
+			<object class="wxStaticText" name="ID_STATICTEXT3" variable="StaticText3" member="yes">
+				<label>Polling Interval in millisecond :</label>
+				<pos>16,66</pos>
+			</object>
+			<object class="wxStaticText" name="ID_STATICTEXT4" variable="StaticText4" member="yes">
+				<label>Connection Port :</label>
+				<pos>16,89</pos>
+			</object>
+			<object class="wxTextCtrl" name="ID_TEXTCTRL1" variable="txtPingTimeout" member="yes">
+				<value>100</value>
+				<pos>208,16</pos>
+				<size>100,21</size>
+			</object>
+			<object class="wxTextCtrl" name="ID_TEXTCTRL2" variable="txtReplyTimeout" member="yes">
+				<value>2000</value>
+				<pos>208,40</pos>
+				<size>100,21</size>
+			</object>
+			<object class="wxTextCtrl" name="ID_TEXTCTRL3" variable="txtPollingInterval" member="yes">
+				<value>1000</value>
+				<pos>208,64</pos>
+				<size>100,21</size>
+			</object>
+			<object class="wxTextCtrl" name="ID_TEXTCTRL4" variable="txtConnectionPort" member="yes">
+				<value>3000</value>
+				<pos>208,88</pos>
+				<size>100,21</size>
+			</object>
+			<object class="wxButton" name="ID_BUTTON1" variable="btnSettingsCancel" member="yes">
+				<label>Cancel</label>
+				<pos>224,136</pos>
+				<size>83,23</size>
+				<handler function="OnbtnSettingsCancelClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxButton" name="ID_BUTTON2" variable="btnSettingsOK" member="yes">
+				<label>OK</label>
+				<pos>128,136</pos>
+				<size>83,23</size>
+				<handler function="OnbtnSettingsOKClick" entry="EVT_BUTTON" />
+			</object>
+		</object>
+	</object>
+</wxsmith>
