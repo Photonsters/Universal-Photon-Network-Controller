@@ -12,6 +12,8 @@ bool pingPrinter(wxString ipAddress,int Timeout)
 #endif
     wxArrayString output, errors;
     int code = wxExecute(cmd, output, errors);
+    if(code!=0)
+        return false;
     for(unsigned int i=0;i<output.GetCount();i++)
     {
         wxString line = output.Item(i);
@@ -26,11 +28,7 @@ bool pingPrinter(wxString ipAddress,int Timeout)
         #else
             if(line.Find(wxString("packet loss"))!=wxNOT_FOUND)
             {
-                #if defined(__WXGTK__)
                 wxString loss = line.BeforeLast('%').AfterLast(',');
-                #else
-                wxString loss = line.AfterLast(',').BeforeFirst('%');
-                #endif
                 double value;
                 if(loss.ToDouble(&value))
                 {

@@ -8,6 +8,7 @@
 #include <wx/fileconf.h>
 #include <wx/dir.h>
 #include <wx/filefn.h>
+#include <wx/process.h>
 #include <stdlib.h>
 #include "MyThread.h"
 #include "ping.h"
@@ -19,7 +20,7 @@ wxIPV4address *addrPeer;
 uint8_t receivedBuf[RECV_BUFFER_LENGTH];
 wxUint32 numRead = -1;
 bool isRunning = false;
-
+DisplayProcess* m_running;
 
 DEFINE_EVENT_TYPE(wxEVT_READTHREAD)
 MyThread::MyThread(wxEvtHandler* pParent) : wxThread(wxTHREAD_DETACHED), m_pParent(pParent)
@@ -102,6 +103,79 @@ public:
 
 GcodeCommandClass gcodeCmd;
 
+bool DisplayProcess::HasInput()    // The following methods are adapted from the exec sample.  This one manages the stream redirection
+{
+    m_parent->isPingRunning=true;
+    char c;
+
+    bool hasInput = false;
+    // The original used wxTextInputStream to read a line at a time.  Fine, except when there was no \n, whereupon the thing would hang
+    // Instead, read the stream (which may occasionally contain non-ascii bytes e.g. from g++) into a memorybuffer, then to a wxString
+    while (IsInputAvailable())                                  // If there's std input
+    {
+        wxMemoryBuffer buf;
+        do
+        {
+            c = GetInputStream()->GetC();                       // Get a char from the input
+            if (GetInputStream()->Eof())
+                break;                 // Check we've not just overrun
+
+            buf.AppendByte(c);
+            if (c==wxT('\n'))
+                break;                            // If \n, break to print the line
+        }
+        while (IsInputAvailable());                           // Unless \n, loop to get another char
+        wxString line((const char*)buf.GetData(), wxConvUTF8, buf.GetDataLen()); // Convert the line to utf8
+
+        m_parent->processInput(line);                               // Either there's a full line in 'line', or we've run out of input. Either way, print it
+
+        hasInput = true;
+    }
+
+    while (IsErrorAvailable())
+    {
+        wxMemoryBuffer buf;
+        do
+        {
+            c = GetErrorStream()->GetC();
+            if (GetErrorStream()->Eof())
+                break;
+
+            buf.AppendByte(c);
+            if (c==wxT('\n'))
+                break;
+        }
+        while (IsErrorAvailable());
+        wxString line((const char*)buf.GetData(), wxConvUTF8, buf.GetDataLen());
+
+        m_parent->processInput(line);
+
+        hasInput = true;
+    }
+
+    return hasInput;
+}
+
+void DisplayProcess::OnTerminate(int pid, int status)  // When the subprocess has finished, show the rest of the output, then an exit message
+{
+    while (HasInput());
+
+    wxString exitmessage;
+    if (!status)
+        exitmessage = _("Success\n");
+    else
+        exitmessage = _("Process failed\n");
+    m_parent->exitstatus = status;                                // Tell the dlg what the exit status was, in case caller is interested
+    m_parent->isPingRunning=false;
+    m_parent->ProcessPollTimer.Stop();
+    m_running = NULL;
+    m_parent->getPrintStatus();
+    delete this;
+
+}
+
+
+
 // --------------------------------------------------------------------------
 // resources
 // --------------------------------------------------------------------------
@@ -135,6 +209,7 @@ const long NewFrame::ID_PANEL1 = wxNewId();
 const long NewFrame::ID_TIMER1 = wxNewId();
 const long NewFrame::ID_STATUSBAR1 = wxNewId();
 const long NewFrame::ID_TIMER2 = wxNewId();
+const long NewFrame::ID_TIMER3 = wxNewId();
 //*)
 
 
@@ -209,11 +284,7 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
 
     //(*Initialize(NewFrame)
     Create(parent, wxID_ANY, _("Photon Network Controller"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE|wxMINIMIZE_BOX, _T("wxID_ANY"));
-	#if defined(__WXGTK__)
-	SetClientSize(wxSize(334, 470));
-	#else
-	SetClientSize(wxSize(334,491));
-	#endif
+    SetClientSize(wxSize(334,491));
     Panel1 = new wxPanel(this, ID_PANEL1, wxPoint(224,320), wxSize(334,488), wxTAB_TRAVERSAL, _T("ID_PANEL1"));
     StaticBox1 = new wxStaticBox(Panel1, ID_STATICBOX1, _("Connection Settings"), wxPoint(8,8), wxSize(320,80), 0, _T("ID_STATICBOX1"));
     txtIP = new wxTextCtrl(Panel1, ID_TEXTCTRL1, _("192.168.1.222"), wxPoint(208,24), wxSize(112,21), 0, wxDefaultValidator, _T("ID_TEXTCTRL1"));
@@ -242,6 +313,7 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
     StatusBar1->SetStatusStyles(1,__wxStatusBarStyles_1);
     SetStatusBar(StatusBar1);
     WatchDogTimer.SetOwner(this, ID_TIMER2);
+    ProcessPollTimer.SetOwner(this, ID_TIMER3);
 
     Connect(ID_BUTTON1,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnConnectClick);
     Connect(ID_BUTTON2,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnStartClick);
@@ -254,7 +326,13 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
     Connect(ID_BUTTON9,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnSettingsClick);
     Connect(ID_TIMER1,wxEVT_TIMER,(wxObjectEventFunction)&NewFrame::OnPollTimerTrigger);
     Connect(ID_TIMER2,wxEVT_TIMER,(wxObjectEventFunction)&NewFrame::OnWatchDogTimerTrigger);
+    Connect(ID_TIMER3,wxEVT_TIMER,(wxObjectEventFunction)&NewFrame::OnProcessPollTimerTrigger);
     //*)
+    //#if defined(__WXGTK__)
+	//SetClientSize(wxSize(334, 470));
+	//#else
+	SetClientSize(wxSize(334,470));
+	//#endif
     setStatusMessages(_("Not Connected"), "", "");
     readSettings();
 }
@@ -338,6 +416,33 @@ NewFrame::~NewFrame()
     //(*Destroy(NewFrame)
     //*)
 }
+void NewFrame::processInput(wxString input)
+{
+    if (input.IsEmpty())
+        return;
+    if(pingFailed)      //if you have determined that the ping has already failed then just skip rest of the function
+        return;
+    wxString line = input.Trim();
+		#if defined(__WINDOWS__)
+            if(line.Contains(wxString("timed out")) || line.Contains(wxString("host unreachable")))
+            {
+                //printf("Ping Failed");
+                pingFailed=true;
+            }
+        #else
+            if(line.Find(wxString("packet loss"))!=wxNOT_FOUND)
+            {
+                wxString loss = line.BeforeLast('%').AfterLast(',');
+                double value;
+                if(loss.ToDouble(&value))
+                {
+                    if(value!=0)
+                        pingFailed=true;
+                }
+            }
+        #endif
+
+}
 bool NewFrame::connectToPrinter(wxString hostname)
 {
     if(pingPrinter(hostname,(int)pingTimeOut))
@@ -416,6 +521,7 @@ void NewFrame::disconnectFromPrinter()
         setStatusMessages(_("Not Connected"), "", "");
         btnConnect->SetLabel(_("Connect"));
         lblStatus->SetLabel(_("Not Connected"));
+        lblPercentDone->SetLabel(_("Percent Done"));
         clearListControl();
         progressFile->SetValue(0);
         PrintProgress->SetValue(0);
@@ -777,6 +883,7 @@ void NewFrame::handleResponse()
         wxString errorIfAny = isError(receivedText);
         if (errorIfAny.Length() <= 0)
         {
+            PollTimer.Start(pollingInterval);
             wxStringTokenizer temp(receivedText.Trim(), " ");
             wxString token;
             while (temp.HasMoreTokens())        //get to the last token that is the received message. it should have the format bytes_printed/total_bytes
@@ -799,7 +906,7 @@ void NewFrame::handleResponse()
                 btnStart->Enable();
                 btnStop->Disable();
                 btnPause->Disable();
-                setStatusMessages("prev", _("Print"), _("finished."));
+                setStatusMessages("prev", _("Print finished"), "prev");
                 lblPercentDone->SetLabel(wxString(_("Percent Done : 100")));
                 PrintProgress->SetValue(1000);
                 PrintProgress->Update();
@@ -809,7 +916,7 @@ void NewFrame::handleResponse()
                 lblPercentDone->SetLabel(wxString(_("Percent Done : ")) + wxString::Format(wxT("%d"), (int)round(percentDone / 10)));
                 PrintProgress->SetValue((int)round(percentDone));
                 PrintProgress->Update();
-                setStatusMessages("prev", _("Printing"), wxString(_("Layer ")) + wxString::Format(wxT("%u"), frameNum));
+                setStatusMessages("prev", _("Printing"), "prev");
             }
         }
         else
@@ -817,7 +924,9 @@ void NewFrame::handleResponse()
             PollTimer.Stop();
             setStatusMessages("prev", _("Not Printing"), "");
         }
-
+        gcodeCmd.setCommand("M114");
+        sendCmdToPrinter(gcodeCmd.getCommand());
+        getAsyncReply();
         //wxMessageBox(wxString::Format(wxT("%s"), receivedText),"Information",wxOK|wxICON_INFORMATION|wxCENTER);
     }
     else if (gcodeCmd.isCmd("M24"))       //Gcode to resume Printing
@@ -831,6 +940,15 @@ void NewFrame::handleResponse()
         PollTimer.Start(pollingInterval);
         setStatusMessages("prev", _("Printing"), "");
         //wxMessageBox(wxString::Format(wxT("%s"), receivedText));
+    }
+
+    else if (gcodeCmd.isCmd("M114"))         //Query Z
+    {
+        wxString receivedText = receivedBuf;
+        double zPosition = getValue(receivedText, "Z:", -1);
+        while (sock->IsData())               //get rid of extra messages from the sockets buffer as it will confuse the program
+            getBlockingReply();
+        setStatusMessages("prev", "prev", wxString::Format(wxT(" Z = %.2f mm"), zPosition));
     }
     else if (gcodeCmd.isCmd("M33"))         //Stopping a print
     {
@@ -1005,8 +1123,9 @@ void NewFrame::OnbtnConnectClick(wxCommandEvent& event)
         if(connectToPrinter(txtIP->GetValue()))
         {
             getVersion();
-			ipAddress = addrPeer->IPAddress();
+            ipAddress = addrPeer->IPAddress();
             saveSettings();
+            PollTimer.Start(300);               //query the print status after 300ms. for some reason it doesn't work if you query it right after connection.
         }
 
     }
@@ -1094,36 +1213,48 @@ void NewFrame::OnbtnDeleteClick(wxCommandEvent& event)
         wxMessageBox(_("Please select a file to delete."), _("Warning"), wxOK | wxICON_EXCLAMATION | wxCENTER);
     }
 }
+void NewFrame::AsyncPingPrinter(wxString ipAddress,int Timeout)
+{
+#if defined(__WINDOWS__)
+		wxString command = wxString::Format("ping -n 1 -w %d -l 32 ", Timeout) + ipAddress;
+#else
+		wxString command = wxString::Format("ping -c 1 -W %d -s 32 ", Timeout) + ipAddress;
+#endif
+    if (command.IsEmpty())
+        return;
+
+    DisplayProcess* process = new DisplayProcess(this);         // Make a new Process, the sort with built-in redirection
+    long pid = wxExecute(command, wxEXEC_ASYNC | wxEXEC_MAKE_GROUP_LEADER, process); // Try & run the command.  pid of 0 means failed
+
+    if (!pid)
+    {
+        wxLogError(_("Execution of '%s' failed."), command.c_str());
+        delete process;
+    }
+    else
+    {
+        // Store the pid in case Cancel is pressed
+        if (m_running==NULL)                                        // If it's not null, there's already a running process
+        {
+            isPingRunning=true;
+            process->SetPid(pid);
+            ProcessPollTimer.Start(100);                           // Tell the timer to create idle events every 1/10th sec
+            m_running = process;                                    // Store the process
+        }                             // Start the timer to poll for output
+    }
+}
 
 void NewFrame::OnbtnRefreshClick(wxCommandEvent& event)
 {
     //wxMessageBox(_("Refresh file list\n"), _("About Refresh"), wxOK | wxICON_INFORMATION, this);
 	updatefileList();
-//	gcodeCmd.setCommand("M27");
-//	gcodeCmd.setParameter("");
-//	sendCmdToPrinter(gcodeCmd.getCommand());
-//	getAsyncReply();
-//pingPrinter("192.168.1.223");
-//    char buffer[128];
-//    //std::string result = "";
-//    FILE* pipe = popen("ls", "r");
-//    if (!pipe) printf("popen() failed!");
-//    else
-//    {
-//        try {
-//            while (fgets(buffer, sizeof buffer, pipe) != NULL)
-//            {
-//                //result += buffer;
-//                printf("%s",buffer);
-//            }
-//        } catch (...) {
-//            pclose(pipe);
-//            throw;
-//        }
-//        pclose(pipe);
-//    }
-//readSettings();
+//AsyncPingPrinter(txtIP->GetValue(),250);
+//        gcodeCmd.setCommand("M114");
+//        sendCmdToPrinter(gcodeCmd.getCommand());
+//        getAsyncReply();
 }
+
+
 
 void NewFrame::OnbtnUploadClick(wxCommandEvent& event)
 {
@@ -1186,27 +1317,41 @@ void NewFrame::OnMyThread(wxCommandEvent& event)
     handleResponse();
 }
 
+void NewFrame::getPrintStatus()
+{
+   if(!pingFailed)                  //Get status of the printer if it is still connected i.e. the ping didn't fail
+   {
+       gcodeCmd.setCommand("M27");
+       gcodeCmd.setParameter("");
+       sendCmdToPrinter(gcodeCmd.getCommand());
+       getAsyncReply();
+   }
+   else
+   {
+       PollTimer.Stop();
+       try
+       {
+           disconnectFromPrinter();
+           wxMessageBox(_("Lost connection to the printer."), _("Error"), wxOK | wxICON_ERROR | wxCENTER);
+       }
+       catch (...) {}
+   }
+}
+
+
 void NewFrame::OnPollTimerTrigger(wxTimerEvent& event)
 {
-    //wxMessageBox("Triggered");
-    if(pingPrinter(addrPeer->IPAddress(),(int)pingTimeOut))                  //Get status of the printer if it is still connected
+    if(!isPingRunning)                                          //make sure a previous ping is not already running
     {
-        gcodeCmd.setCommand("M27");
-        gcodeCmd.setParameter("");
-        sendCmdToPrinter(gcodeCmd.getCommand());
-        getAsyncReply();
-    }
-    else
-    {
-        PollTimer.Stop();
-        try
+        if(m_running!=NULL)
         {
-          disconnectFromPrinter();
-          wxMessageBox(_("Lost connection to the printer."), _("Error"), wxOK | wxICON_ERROR | wxCENTER);
+            delete m_running;
+            m_running=NULL;
         }
-        catch (...) {}
+        pingFailed=false;                                       //assume the ping is not going to fail
+        isPingRunning=true;
+        AsyncPingPrinter(addrPeer->IPAddress(),(int)pingTimeOut);
     }
-
 }
 
 void NewFrame::OnWatchDogTimerTrigger(wxTimerEvent& event)
@@ -1240,6 +1385,7 @@ void NewFrame::OnWatchDogTimerTrigger(wxTimerEvent& event)
             setStatusMessages(_("Not Connected"), "", "");
             btnConnect->SetLabel(_("Connect"));
             lblStatus->SetLabel(_("Not Connected"));
+            lblPercentDone->SetLabel(_("Percent Done"));
             clearListControl();
             progressFile->SetValue(0);
             PrintProgress->SetValue(0);
@@ -1255,4 +1401,9 @@ void NewFrame::OnbtnSettingsClick(wxCommandEvent& event)
     SettingsDialog *dlg = new SettingsDialog(this);
     dlg->Show();
     btnSettings->Disable();
+}
+
+void NewFrame::OnProcessPollTimerTrigger(wxTimerEvent&  WXUNUSED(event))
+{
+    wxWakeUpIdle();
 }
