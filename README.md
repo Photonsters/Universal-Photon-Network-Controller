@@ -19,7 +19,7 @@ Mount the dmg file and drag the software to the Application directory. It should
 
 #### Linux
 
-The program was only tested on 64-bit version of Ubuntu 18.04.2. But it might not work as the program needs wxWigets library installed. If you are on a Linux OS then it is advisable to install wxWigets and then compile the program from source. Even though it seems like a complicated and lengthy method it has a higher rate of success than just using the binaries as is.
+The program was tested on 64-bit version of Ubuntu 18.04.2 and OpenSUSE 42.3. But it might not work as the program needs wxWigets library installed. If you are on a Linux OS then it is advisable to install wxWigets and then compile the program from source. Even though it seems like a complicated and lengthy method it has a higher rate of success than just using the binaries as is.
 
 ## Usage
 
