@@ -9,6 +9,16 @@
 #include <wx/dir.h>
 #include <wx/filefn.h>
 #include <wx/process.h>
+#include <wx/artprov.h>
+#include <wx/arrstr.h>
+#ifndef __WINDOWS__
+#include <netdb.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#endif
 #include <stdlib.h>
 #include "MyThread.h"
 #include "ping.h"
@@ -42,6 +52,7 @@ void* MyThread::Entry()
         //{
         if (sock->IsOk())
         {
+			sock->SetTimeout((long)(replyTimeout / 1000)+1);
             sock->RecvFrom(*addrPeer, receivedBuf, RECV_BUFFER_LENGTH);
             numRead = sock->LastCount();
         }
@@ -187,7 +198,6 @@ void DisplayProcess::OnTerminate(int pid, int status)  // When the subprocess ha
 
 //(*IdInit(NewFrame)
 const long NewFrame::ID_STATICBOX1 = wxNewId();
-const long NewFrame::ID_TEXTCTRL1 = wxNewId();
 const long NewFrame::ID_STATICTEXT1 = wxNewId();
 const long NewFrame::ID_BUTTON1 = wxNewId();
 const long NewFrame::ID_STATICTEXT2 = wxNewId();
@@ -205,6 +215,8 @@ const long NewFrame::ID_BUTTON8 = wxNewId();
 const long NewFrame::ID_GAUGE2 = wxNewId();
 const long NewFrame::ID_LISTCTRL1 = wxNewId();
 const long NewFrame::ID_BUTTON9 = wxNewId();
+const long NewFrame::ID_BITMAPBUTTON1 = wxNewId();
+const long NewFrame::ID_COMBOBOX1 = wxNewId();
 const long NewFrame::ID_PANEL1 = wxNewId();
 const long NewFrame::ID_TIMER1 = wxNewId();
 const long NewFrame::ID_STATUSBAR1 = wxNewId();
@@ -287,7 +299,6 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
     SetClientSize(wxSize(334,491));
     Panel1 = new wxPanel(this, ID_PANEL1, wxPoint(224,320), wxSize(334,488), wxTAB_TRAVERSAL, _T("ID_PANEL1"));
     StaticBox1 = new wxStaticBox(Panel1, ID_STATICBOX1, _("Connection Settings"), wxPoint(8,8), wxSize(320,80), 0, _T("ID_STATICBOX1"));
-    txtIP = new wxTextCtrl(Panel1, ID_TEXTCTRL1, _("192.168.1.222"), wxPoint(208,24), wxSize(112,21), 0, wxDefaultValidator, _T("ID_TEXTCTRL1"));
     StaticText1 = new wxStaticText(Panel1, ID_STATICTEXT1, _("IP Address"), wxPoint(16,28), wxDefaultSize, 0, _T("ID_STATICTEXT1"));
     btnConnect = new wxButton(Panel1, ID_BUTTON1, _("Connect"), wxPoint(235,54), wxSize(85,26), 0, wxDefaultValidator, _T("ID_BUTTON1"));
     lblStatus = new wxStaticText(Panel1, ID_STATICTEXT2, _("Not Connected"), wxPoint(16,60), wxDefaultSize, 0, _T("ID_STATICTEXT2"));
@@ -305,6 +316,9 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
     progressFile = new wxGauge(Panel1, ID_GAUGE2, 100, wxPoint(16,433), wxSize(212,24), 0, wxDefaultValidator, _T("ID_GAUGE2"));
     ListCtrl1 = new wxListCtrl(Panel1, ID_LISTCTRL1, wxPoint(16,232), wxSize(304,152), wxLC_REPORT|wxLC_SINGLE_SEL|wxSUNKEN_BORDER, wxDefaultValidator, _T("ID_LISTCTRL1"));
     btnSettings = new wxButton(Panel1, ID_BUTTON9, _("Settings"), wxPoint(127,54), wxSize(85,26), 0, wxDefaultValidator, _T("ID_BUTTON9"));
+    btnSearchPrinter = new wxBitmapButton(Panel1, ID_BITMAPBUTTON1, wxArtProvider::GetBitmap(wxART_MAKE_ART_ID_FROM_STR(_T("wxART_FIND")),wxART_BUTTON), wxPoint(296,23), wxSize(25,25), wxBU_AUTODRAW, wxDefaultValidator, _T("ID_BITMAPBUTTON1"));
+    btnSearchPrinter->SetMinSize(wxSize(25,25));
+    comboIP = new wxComboBox(Panel1, ID_COMBOBOX1, wxEmptyString, wxPoint(127,24), wxSize(160,26), 0, 0, 0, wxDefaultValidator, _T("ID_COMBOBOX1"));
     PollTimer.SetOwner(this, ID_TIMER1);
     StatusBar1 = new wxStatusBar(this, ID_STATUSBAR1, 0, _T("ID_STATUSBAR1"));
     int __wxStatusBarWidths_1[1] = { -10 };
@@ -324,6 +338,7 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
     Connect(ID_BUTTON7,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnUploadClick);
     Connect(ID_BUTTON8,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnDownloadClick);
     Connect(ID_BUTTON9,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnSettingsClick);
+    Connect(ID_BITMAPBUTTON1,wxEVT_COMMAND_BUTTON_CLICKED,(wxObjectEventFunction)&NewFrame::OnbtnSearchPrinterClick);
     Connect(ID_TIMER1,wxEVT_TIMER,(wxObjectEventFunction)&NewFrame::OnPollTimerTrigger);
     Connect(ID_TIMER2,wxEVT_TIMER,(wxObjectEventFunction)&NewFrame::OnWatchDogTimerTrigger);
     Connect(ID_TIMER3,wxEVT_TIMER,(wxObjectEventFunction)&NewFrame::OnProcessPollTimerTrigger);
@@ -332,9 +347,99 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
 	//SetClientSize(wxSize(334, 470));
 	//#else
 	SetClientSize(wxSize(334,470));
-	//#endif
+#ifdef __WINDOWS__
+	comboIP->SetPosition(wxPoint(127, 24));
+#else
+	comboIP->SetPosition(wxPoint(127, 23));
+#endif
     setStatusMessages(_("Not Connected"), "", "");
     readSettings();
+}
+wxArrayString GetNetworkAddresses()
+{
+	wxArrayString array;
+
+	#ifndef __WINDOWS__
+	// host name is a valid entry
+	array.Add(wxGetFullHostName());
+
+	// now get all the IP addresses
+
+	bool result = false;
+	struct hostent* currentHost = NULL;
+	char hostName[_POSIX_HOST_NAME_MAX];
+	int hostResult = gethostname(hostName, sizeof (hostName) - 1);
+
+    // null terminate
+    hostName[sizeof(hostName) / sizeof(char) - 1] = '\0';
+
+    if (hostResult == 0)
+    {
+        currentHost = gethostbyname(hostName);
+        if (NULL != currentHost)
+        {
+            result = true;
+        }
+    }
+
+	if (result)
+	{
+		for (int i = 0 ; currentHost->h_addr_list[i] != NULL ; ++i)
+		{
+			char *inoutString = inet_ntoa(*(struct in_addr*)(currentHost->h_addr_list[i]));
+
+			// add the IP address
+			array.Add(wxString((char*) &inoutString[0], wxConvLocal));
+		}
+	}
+
+	#else
+	// win32
+
+
+	int i = 0;
+	WSAData wsaData;
+
+	struct hostent *phe = NULL;
+    if (WSAStartup(MAKEWORD(1, 1), &wsaData) != 0)
+	{
+        goto end;
+    }
+
+	char ac[80];
+    if (gethostname(ac, sizeof(ac)) == SOCKET_ERROR)
+	{
+		goto end;
+    }
+
+    phe = gethostbyname(ac);
+    if (phe == 0)
+	{
+		goto end;
+    }
+
+    for (i = 0 ; phe->h_addr_list[i] != 0 ; ++i)
+	{
+        struct in_addr addr;
+        memcpy(&addr, phe->h_addr_list[i], sizeof(struct in_addr));
+        char *address = inet_ntoa(addr);
+
+		// add the IP address
+		array.Add(wxString((char*) &address[0], wxConvLocal));
+    }
+
+end:
+
+	WSACleanup();
+	#endif
+
+	// if all above fail, then fallback to wxWidgets
+	//if (array.GetCount() == 0)
+	//{
+	//	array.Add(this->GetCurrentIPAddress());
+	//}
+
+	return array;
 }
 
 wxString convertSize(size_t size)
@@ -406,6 +511,38 @@ double getValue(wxString str, wxString prefix, double default_val, wxString ahea
     }
 }
 
+wxString getStringValue(wxString str, wxString prefix, wxString default_val, wxString ahead)
+{
+	try
+	{
+		int startIndex = 0;
+		if (ahead != "")
+		{
+			startIndex = str.Find(ahead);
+			if (startIndex != -1)
+			{
+				startIndex += ahead.Length();
+			}
+		}
+		int index = str.substr(startIndex).Find(prefix);
+		if (index != wxNOT_FOUND)
+		{
+			index += prefix.Length();
+			wxString tempstr = str.substr(index);
+			int len = tempstr.Find(' ');
+			if (len == wxNOT_FOUND)
+				return tempstr.Trim();
+			else
+				return tempstr.substr(0, len).Trim();
+		}
+		return default_val;
+	}
+	catch (...)
+	{
+		return default_val;
+	}
+}
+
 double getValue(wxString str, wxString prefix, double default_val)
 {
     return getValue(str, prefix, default_val, "");
@@ -459,8 +596,11 @@ bool NewFrame::connectToPrinter(wxString hostname)
 
 
         //wxIPV4address addrPeer;
-        free(addrPeer);
-        addrPeer = NULL;
+		//if (addrPeer != NULL)
+		//{
+		//	free(addrPeer);
+		//	addrPeer = NULL;
+		//}
         addrPeer = new wxIPV4address;
         addrPeer->Hostname(hostname);
         addrPeer->Service(port);
@@ -500,9 +640,13 @@ void NewFrame::disconnectFromPrinter()
             sockThread = NULL;
             isRunning = false;
         }
-        sock->Close();
-        free(addrPeer);
-        addrPeer = NULL;
+		if(sock->IsOk())
+			sock->Close();
+		//if (addrPeer != NULL)
+		//{
+		//	free(addrPeer);
+		//	addrPeer = NULL;
+		//}
         isconnected = false;
         startList = false;
         endList = false;
@@ -583,10 +727,102 @@ void NewFrame::sendCmdToPrinter(uint8_t* cmd, unsigned int sendSize)
     }
 }
 
+void NewFrame::broadcastOverUDP(wxString broadCastHost,uint8_t* cmd, unsigned int sendSize)
+{
+	try
+	{
+		wxIPV4address m_LocalAddress;
+		m_LocalAddress.AnyAddress();
+		m_LocalAddress.Service(3001);   // port on which we listen
+												  // Create the socket
+		m_Listen_Socket = new wxDatagramSocket(m_LocalAddress, wxSOCKET_REUSEADDR);
+		if (m_Listen_Socket->Error())
+		{
+			wxLogError(_("Could not open Datagram Socket\n\n"));
+			return;
+		}
+		else
+		{
+			///////////////////////////////////////////////////////////////////////////
+			// To send to a broadcast address, you must enable SO_BROADCAST socket
+			// option, in plain C this is:
+			//      int enabled = 1;
+			//      setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &enabled, sizeof(enabled));
+			// where sockfd is the socket descriptor (See http://linux.die.net/man/2/setsockopt)
+			// See also boxcarmiba Wed Aug 02, 2006
+			// at https://forums.wxwidgets.org/viewtopic.php?t=9410
+			static int enabled = 1;
+			m_Listen_Socket->SetOption(SOL_SOCKET, SO_BROADCAST, &enabled, sizeof(enabled));
+			///////////////////////////////////////////////////////////////////////////
+
+			// Specify a broadcast IP, in this case "Limited Broadcast" on the local network:
+			free(m_BroadCastAddress);
+			m_BroadCastAddress = NULL;
+			m_BroadCastAddress = new wxIPV4address;
+			m_BroadCastAddress->Hostname(broadCastHost);
+			m_BroadCastAddress->Service(3000);
+
+			// Use same socket created for listening for sending:
+			m_Listen_Socket->SendTo(*m_BroadCastAddress, cmd, sendSize);
+
+			if (m_Listen_Socket->Error())
+			{
+				wxLogMessage(_T("SendTo Error: %d"), m_Listen_Socket->LastError());
+			}
+		}
+	}
+	catch (...)
+	{
+		wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+	}
+}
+
+wxArrayString NewFrame::getBlockingBroadcastReply(wxString broadcastHostname)
+{
+	wxArrayString ipArray;
+	try
+	{
+
+		wxIPV4address Peer;
+		wxString host;
+		unsigned int itemIndex = 0;
+		wxString beforeString = comboIP->GetValue();
+		do
+		{
+			memset(&receivedBuf[0], 0, sizeof(receivedBuf));
+			m_Listen_Socket->SetTimeout(2);
+			m_Listen_Socket->Read(&receivedBuf, sizeof(receivedBuf));
+			m_Listen_Socket->GetPeer(Peer);
+			host = Peer.IPAddress();
+			if (host != "255.255.255.255" && host!= broadcastHostname)
+			{
+				wxString name = getStringValue(receivedBuf, "NAME:", "00_NO_NAME_00", "");
+				if (name != "00_NO_NAME_00")
+				{
+					ipArray.Add(host);
+					//comboIP->Insert(host, itemIndex);
+					//comboIP->SetValue(host);
+					itemIndex++;
+				}
+			}
+		} while (m_Listen_Socket->IsData());
+		m_Listen_Socket->Close();
+		free(m_Listen_Socket);
+		m_Listen_Socket = NULL;
+
+
+
+	}
+	catch (...) {}
+	return ipArray;
+}
+
 void NewFrame::getAsyncReply()
 {
     try
     {
+		//free(sockThread);
+		//sockThread = NULL;
         sockThread = new MyThread(this);
         sockThread->Create();
         sockThread->Run();
@@ -599,6 +835,7 @@ void NewFrame::getBlockingReply()
     try
     {
         memset(&receivedBuf[0], 0, sizeof(receivedBuf));
+        sock->SetTimeout((long)(replyTimeout / 1000));
         numRead = sock->RecvFrom(*addrPeer, receivedBuf, sizeof(receivedBuf)).LastCount();
         WatchDogTimer.Stop();
     }
@@ -618,10 +855,13 @@ void NewFrame::clearListControl()
 
 void NewFrame::handleResponse()
 {
+
     WatchDogTimer.Stop();
     if (gcodeCmd.isCmd("M4002"))       //Gcode to read version info from printer
     {
         wxString tempStr = receivedBuf;
+		if (tempStr.Length() <= 0)
+			return;
         lblStatus->SetLabel(_("Connected"));
         btnConnect->SetLabel(_("Disconnect"));
         isconnected = true;
@@ -630,6 +870,7 @@ void NewFrame::handleResponse()
         while (sock->IsData())               //get rid of extra messages from the sockets buffer as it will confuse the program
             getBlockingReply();
         updatefileList();
+		PollTimer.Start(300);				//Get printer status if possible
     }
     else if (gcodeCmd.isCmd("M20"))       //Gcode to read the filelist
     {
@@ -1089,7 +1330,17 @@ void NewFrame:: saveSettings()
         wxDir::Make(ini_Directory);
     wxString ini_filename = wxStandardPaths::Get().GetUserConfigDir() + wxFileName::GetPathSeparator() + wxString("PhotonTool")+ wxFileName::GetPathSeparator() + wxString(_("Settings.INI"));
     wxFileConfig *config = new wxFileConfig( "", "", ini_filename);
+    wxString ipList=wxEmptyString;
+	for (unsigned int i = 0; i < comboIP->GetCount();i++)
+	{
+		if (comboIP->GetString(i).Trim() != ipAddress.Trim())
+		{
+			ipList = wxString(',') + comboIP->GetString(i).Trim() +ipList;
+		}
+	}
+	ipList = ipAddress + ipList;
     config->Write( wxT("IP"), ipAddress );
+	config->Write(wxT("IPList"), ipList);
     config->Write(wxT("pingTimeOut"),pingTimeOut);
     config->Write(wxT("replyTimeout"),replyTimeout);
     config->Write(wxT("port"),port);
@@ -1104,15 +1355,29 @@ void NewFrame:: readSettings()
     {
         wxFileConfig *config = new wxFileConfig( "", "", ini_filename);
         config->Read(wxT("IP"),&ipAddress,"192.168.1.222");
+		wxString ipList = wxEmptyString;
+		config->Read(wxT("IPList"), &ipList, "192.168.1.222");
         config->Read(wxT("pingTimeOut"),&pingTimeOut,100);
         config->Read(wxT("replyTimeout"),&replyTimeout,2000);
         config->Read(wxT("port"),&port,3000);
         config->Read(wxT("pollingInterval"),&pollingInterval,1000);
         delete config;
-        txtIP->SetValue(ipAddress);
+		comboIP->Clear();
+		int ipIndex = 0;
+		wxStringTokenizer temp(ipList, ",");
+		while (temp.HasMoreTokens())
+		{
+			wxString token = temp.GetNextToken();
+			if (token.Trim().Length() > 4)
+			{
+				comboIP->Insert(token, ipIndex);
+				ipIndex++;
+			}
+		}
+		comboIP->SetValue(ipAddress);
     }
     else
-        txtIP->SetValue("192.168.1.222");
+		comboIP->SetValue("192.168.1.222");
 
 }
 void NewFrame::OnbtnConnectClick(wxCommandEvent& event)
@@ -1120,12 +1385,12 @@ void NewFrame::OnbtnConnectClick(wxCommandEvent& event)
     //wxMessageBox(_("Connect to Printer\n"), _("About Connect"), wxOK | wxICON_INFORMATION, this);
     if (!isconnected)            //Connect to the printer if it not connected
     {
-        if(connectToPrinter(txtIP->GetValue()))
+        if(connectToPrinter(comboIP->GetValue()))
         {
             getVersion();
             ipAddress = addrPeer->IPAddress();
             saveSettings();
-            PollTimer.Start(300);               //query the print status after 300ms. for some reason it doesn't work if you query it right after connection.
+            //PollTimer.Start(300);               //query the print status after 300ms. for some reason it doesn't work if you query it right after connection.
         }
 
     }
@@ -1248,10 +1513,7 @@ void NewFrame::OnbtnRefreshClick(wxCommandEvent& event)
 {
     //wxMessageBox(_("Refresh file list\n"), _("About Refresh"), wxOK | wxICON_INFORMATION, this);
 	updatefileList();
-//AsyncPingPrinter(txtIP->GetValue(),250);
-//        gcodeCmd.setCommand("M114");
-//        sendCmdToPrinter(gcodeCmd.getCommand());
-//        getAsyncReply();
+
 }
 
 
@@ -1360,13 +1622,17 @@ void NewFrame::OnWatchDogTimerTrigger(wxTimerEvent& event)
     {
         if (isRunning)
         {
-            sockThread->Kill();
+            //sockThread->Kill();
             //free(sockThread);
-            sockThread = NULL;
+            //sockThread = NULL;
             isRunning = false;
-            sock->Close();
-            free(addrPeer);
-            addrPeer = NULL;
+			if(sock->IsOk())
+				sock->Close();
+			//if (addrPeer != NULL)
+			//{
+			//	free(addrPeer);
+			//	addrPeer = NULL;
+			//}
             isconnected = false;
             startList = false;
             endList = false;
@@ -1406,4 +1672,76 @@ void NewFrame::OnbtnSettingsClick(wxCommandEvent& event)
 void NewFrame::OnProcessPollTimerTrigger(wxTimerEvent&  WXUNUSED(event))
 {
     wxWakeUpIdle();
+}
+
+void NewFrame::OnbtnSearchPrinterClick(wxCommandEvent& event)
+{
+	setStatusMessages("Searching for printers. Please Wait . . .", "", "");
+	wxArrayString res = GetNetworkAddresses();
+	wxArrayString broadcastAddresses;
+	wxString boradcastIP = wxEmptyString;
+	for (unsigned i = 0;i < res.Count();i++)
+	{
+		wxString temp = res.Item(i);
+		wxStringTokenizer tempToken(temp, ".");
+		wxString temp1 = "";
+		unsigned int count = 0;
+		while (tempToken.HasMoreTokens())
+		{
+			wxString token = tempToken.GetNextToken();
+			if (count == 0)
+				temp1 = token;
+			else
+				temp1 = temp1 + wxString('.') + token;
+			count++;
+			if (count == 2)
+			{
+				broadcastAddresses.Add(temp1 + wxString(".255.255"));			//Create boradcast IPs by replacing the last 16 bits with 255.255
+				broadcastAddresses.Add(temp1 + wxString(".1.255"));				//This seems to work if I want to search from a virtual machine
+			}
+			else if (count == 3)
+				broadcastAddresses.Add(temp1 + wxString(".255"));				//Also create boradcast IPs by replacing the last 8 bits with 255
+		}
+	}
+	wxArrayString destination; // new empty wxArrayString
+	for (unsigned int i = 0; i < broadcastAddresses.GetCount(); i++)
+	{
+		const wxString &s = broadcastAddresses[i];
+		if (destination.Index(s) == wxNOT_FOUND)
+			destination.Add(s);
+	}
+	broadcastAddresses = destination;  // copy the data back to the old array
+	wxArrayString printerIPsFound;
+	for (unsigned int i = 0;i < broadcastAddresses.Count();i++)
+	{
+		wxString boradcastIP = broadcastAddresses.Item(i);
+		broadcastOverUDP(boradcastIP, (uint8_t*)"M99999", 7);
+		wxArrayString printerIPs = getBlockingBroadcastReply(boradcastIP);
+		for (unsigned int i = 0; i < printerIPs.GetCount(); i++)
+		{
+			const wxString &s = printerIPs[i];
+			if (printerIPsFound.Index(s) == wxNOT_FOUND)
+				printerIPsFound.Add(s);
+		}
+	}
+	if (printerIPsFound.Count() > 0)
+	{
+		setStatusMessages(wxString::Format(wxT("Found %d printer(s)"), (int)(printerIPsFound.Count())), "", "");
+		wxString beforeString = comboIP->GetValue();
+		comboIP->Clear();
+		for (unsigned int i = 0;i < printerIPsFound.Count();i++)
+		{
+			comboIP->Insert(printerIPsFound.Item(i), i);
+			comboIP->SetValue(printerIPsFound.Item(i));
+		}
+		if (beforeString.Length() > 4)
+		{
+			comboIP->SetValue(beforeString);
+		}
+	}
+	else
+	{
+		setStatusMessages(_("No printers discovered"), "", "");
+		wxMessageBox(_("No printers detected in the network.\nHowever you can still connect to a printer if its IP address is accesible"), _("Information"), wxOK | wxICON_INFORMATION | wxCENTER);
+	}
 }

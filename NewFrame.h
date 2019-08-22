@@ -13,7 +13,9 @@
 #include "wx/sstream.h"
 #include <wx/process.h>
 //(*Headers(NewFrame)
+#include <wx/bmpbuttn.h>
 #include <wx/button.h>
+#include <wx/combobox.h>
 #include <wx/frame.h>
 #include <wx/gauge.h>
 #include <wx/listctrl.h>
@@ -21,10 +23,10 @@
 #include <wx/statbox.h>
 #include <wx/stattext.h>
 #include <wx/statusbr.h>
-#include <wx/textctrl.h>
 #include <wx/timer.h>
 //*)
 #include <wx/file.h>
+
 // Define a new application type
 class MyApp : public wxApp
 {
@@ -43,6 +45,7 @@ public:
     void processInput(wxString);
     void getPrintStatus();
     //(*Declarations(NewFrame)
+    wxBitmapButton* btnSearchPrinter;
     wxButton* btnConnect;
     wxButton* btnDelete;
     wxButton* btnDownload;
@@ -52,6 +55,7 @@ public:
     wxButton* btnStart;
     wxButton* btnStop;
     wxButton* btnUpload;
+    wxComboBox* comboIP;
     wxGauge* PrintProgress;
     wxGauge* progressFile;
     wxListCtrl* ListCtrl1;
@@ -63,7 +67,6 @@ public:
     wxStaticText* lblPercentDone;
     wxStaticText* lblStatus;
     wxStatusBar* StatusBar1;
-    wxTextCtrl* txtIP;
     wxTimer PollTimer;
     wxTimer ProcessPollTimer;
     wxTimer WatchDogTimer;
@@ -82,7 +85,6 @@ protected:
 
     //(*Identifiers(NewFrame)
     static const long ID_STATICBOX1;
-    static const long ID_TEXTCTRL1;
     static const long ID_STATICTEXT1;
     static const long ID_BUTTON1;
     static const long ID_STATICTEXT2;
@@ -100,6 +102,8 @@ protected:
     static const long ID_GAUGE2;
     static const long ID_LISTCTRL1;
     static const long ID_BUTTON9;
+    static const long ID_BITMAPBUTTON1;
+    static const long ID_COMBOBOX1;
     static const long ID_PANEL1;
     static const long ID_TIMER1;
     static const long ID_STATUSBAR1;
@@ -121,6 +125,7 @@ private:
     void OnWatchDogTimerTrigger(wxTimerEvent& event);
     void OnbtnSettingsClick(wxCommandEvent& event);
     void OnProcessPollTimerTrigger(wxTimerEvent& event);
+    void OnbtnSearchPrinterClick(wxCommandEvent& event);
     //*)
     void getAsyncReply();
     void OnMyThread(wxCommandEvent& event);
@@ -129,7 +134,8 @@ private:
     void getBlockingReply();
     void handleResponse();
     void sendCmdToPrinter(wxString);
-
+	void broadcastOverUDP(wxString,uint8_t*, unsigned int);
+	wxArrayString getBlockingBroadcastReply(wxString);
     void sendCmdToPrinter(uint8_t*, unsigned int);
     void updatefileList();
     bool connectToPrinter(wxString);
@@ -153,6 +159,9 @@ private:
     ssize_t downloadFileLength = -1;
     ssize_t downloadFileCurrentLength = -1;
     bool pingFailed=false;
+	wxIPV4address *m_BroadCastAddress; // For broadcast sending
+	wxIPV4address m_LocalAddress;     // For listening
+	wxDatagramSocket* m_Listen_Socket;
     DECLARE_EVENT_TABLE()
 };
 

@@ -13,11 +13,6 @@
 				<pos>8,8</pos>
 				<size>320,80</size>
 			</object>
-			<object class="wxTextCtrl" name="ID_TEXTCTRL1" variable="txtIP" member="yes">
-				<value>192.168.1.222</value>
-				<pos>208,24</pos>
-				<size>112,21</size>
-			</object>
 			<object class="wxStaticText" name="ID_STATICTEXT1" variable="StaticText1" member="yes">
 				<label>IP Address</label>
 				<pos>16,28</pos>
@@ -108,6 +103,17 @@
 				<size>85,26</size>
 				<handler function="OnbtnSettingsClick" entry="EVT_BUTTON" />
 			</object>
+			<object class="wxBitmapButton" name="ID_BITMAPBUTTON1" variable="btnSearchPrinter" member="yes">
+				<bitmap stock_id="wxART_FIND" stock_client="wxART_BUTTON" />
+				<pos>296,23</pos>
+				<size>25,25</size>
+				<minsize>25,25</minsize>
+				<handler function="OnbtnSearchPrinterClick" entry="EVT_BUTTON" />
+			</object>
+			<object class="wxComboBox" name="ID_COMBOBOX1" variable="comboIP" member="yes">
+				<pos>127,24</pos>
+				<size>160,26</size>
+			</object>
 		</object>
 		<object class="wxTimer" name="ID_TIMER1" variable="PollTimer" member="yes">
 			<handler function="OnPollTimerTrigger" entry="EVT_TIMER" />
@@ -120,6 +126,9 @@
 		<object class="wxTimer" name="ID_TIMER2" variable="WatchDogTimer" member="yes">
 			<oneshot>1</oneshot>
 			<handler function="OnWatchDogTimerTrigger" entry="EVT_TIMER" />
+		</object>
+		<object class="wxTimer" name="ID_TIMER3" variable="ProcessPollTimer" member="yes">
+			<handler function="OnProcessPollTimerTrigger" entry="EVT_TIMER" />
 		</object>
 	</object>
 </wxsmith>

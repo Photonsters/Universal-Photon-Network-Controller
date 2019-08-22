@@ -74,18 +74,19 @@ void SettingsDialog::OnbtnSettingsOKClick(wxCommandEvent& event)
     if(txtConnectionPort->GetValue().ToDouble(&value)){ port = value; } else {port = 3000;}
     parentFrame->saveSettings();
     parentFrame->btnSettings->Enable();
-    Destroy();
+    AcceptAndClose();
 }
 
 void SettingsDialog::OnbtnSettingsCancelClick(wxCommandEvent& event)
 {
     parentFrame->btnSettings->Enable();
-    Destroy();
+    AcceptAndClose();
+    //Destroy();
 }
 
 void SettingsDialog::OnClose(wxCloseEvent& event)
 {
     parentFrame->btnSettings->Enable();
-    Destroy();
+    AcceptAndClose();
 
 }

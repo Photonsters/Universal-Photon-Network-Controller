@@ -30,6 +30,7 @@
 					<Add library="libwx_baseu-3.1.dll.a" />
 					<Add library="libwx_mswu_adv-3.1.dll.a" />
 					<Add library="libwx_mswu_core-3.1.dll.a" />
+					<Add library="Ws2_32" />
 				</Linker>
 			</Target>
 		</Build>
