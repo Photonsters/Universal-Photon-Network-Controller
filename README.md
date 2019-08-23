@@ -26,7 +26,7 @@ The program was tested on 64-bit version of Ubuntu 18.04.2 and OpenSUSE 42.3. Bu
 The interface of the program is quite intuitive and self-explanatory. However here are some details of some fields and buttons to make the usage go smoother.
 
 1. "IP Address" - The IP address of the printer. The program remembers the last used IP
-1. "Search" Button- The magnifier button next to the IP address dropdown field is the search button. This function can be used to aotomatically detect printers in your network. 
+1. "Search" Button- The magnifier button next to the IP address dropdown field is the search button. This function can be used to automatically detect printers in your network. 
 1. "Connect" Button - Clicking this button tries to connect to the printer. It will show an error message if the IP address doesn't exist or doesn't respond
 1. "Settings" Button - This button opens the settings dialog box. Below are the description of the settings
  1. "Ping Timeout in millisecond" - The time for pinging the IP address to check if it exists or not.
