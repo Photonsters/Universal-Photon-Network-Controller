@@ -8,7 +8,7 @@
 * A Computer running Windows, Mac or Linux. Preferably Windows or Mac if you are interested in just running the program without much hassle
 
 ## Installation
-
+The releases for various platforms cab be downloaded from the [release page](https://github.com/Photonsters/Universal-Photon-Network-Controller/releases) of this project.
 #### Windows
 
 Uncompress all the files in the compressed archive to somewhere on the computer. Double click on the executable file to run it. It doesn't need administrative access or any special installation. It can be regarded as a portable application.
@@ -26,6 +26,7 @@ The program was tested on 64-bit version of Ubuntu 18.04.2 and OpenSUSE 42.3. Bu
 The interface of the program is quite intuitive and self-explanatory. However here are some details of some fields and buttons to make the usage go smoother.
 
 1. "IP Address" - The IP address of the printer. The program remembers the last used IP
+1. "Search" Button- The magnifier button next to the IP address dropdown field is the search button. This function can be used to aotomatically detect printers in your network. 
 1. "Connect" Button - Clicking this button tries to connect to the printer. It will show an error message if the IP address doesn't exist or doesn't respond
 1. "Settings" Button - This button opens the settings dialog box. Below are the description of the settings
  1. "Ping Timeout in millisecond" - The time for pinging the IP address to check if it exists or not.
