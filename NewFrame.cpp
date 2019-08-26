@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #endif
 #include <stdlib.h>
+#include <exception>
 #include "MyThread.h"
 #include "ping.h"
 #include "settings.h"
@@ -64,8 +65,9 @@ void* MyThread::Entry()
         wxPostEvent(m_pParent, evt);
         return 0;
     }
-    catch (...)
+    catch (std::exception &e)
     {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
         isRunning = true;
         return 0;
     }
@@ -318,6 +320,7 @@ NewFrame::NewFrame(wxFrame* parent, wxWindowID id, wxString title, const wxPoint
     btnSettings = new wxButton(Panel1, ID_BUTTON9, _("Settings"), wxPoint(127,54), wxSize(85,26), 0, wxDefaultValidator, _T("ID_BUTTON9"));
     btnSearchPrinter = new wxBitmapButton(Panel1, ID_BITMAPBUTTON1, wxArtProvider::GetBitmap(wxART_MAKE_ART_ID_FROM_STR(_T("wxART_FIND")),wxART_BUTTON), wxPoint(296,23), wxSize(25,25), wxBU_AUTODRAW, wxDefaultValidator, _T("ID_BITMAPBUTTON1"));
     btnSearchPrinter->SetMinSize(wxSize(25,25));
+    btnSearchPrinter->SetToolTip(_("Search for printer"));
     comboIP = new wxComboBox(Panel1, ID_COMBOBOX1, wxEmptyString, wxPoint(127,24), wxSize(160,26), 0, 0, 0, wxDefaultValidator, _T("ID_COMBOBOX1"));
     PollTimer.SetOwner(this, ID_TIMER1);
     StatusBar1 = new wxStatusBar(this, ID_STATUSBAR1, 0, _T("ID_STATUSBAR1"));
@@ -441,7 +444,6 @@ end:
 
 	return array;
 }
-
 wxString convertSize(size_t size)
 {
     const char *SIZES[] = { _("Bytes"), _("KB"), _("MB"), _("GB") };
@@ -505,8 +507,9 @@ double getValue(wxString str, wxString prefix, double default_val, wxString ahea
         }
         return default_val;
     }
-    catch(...)
+    catch (std::exception &e)
     {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
         return default_val;
     }
 }
@@ -537,8 +540,9 @@ wxString getStringValue(wxString str, wxString prefix, wxString default_val, wxS
 		}
 		return default_val;
 	}
-	catch (...)
-	{
+    catch (std::exception &e)
+    {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
 		return default_val;
 	}
 }
@@ -564,6 +568,7 @@ void NewFrame::processInput(wxString input)
             if(line.Contains(wxString("timed out")) || line.Contains(wxString("host unreachable")))
             {
                 //printf("Ping Failed");
+                saveLog(LOG_INFORMATION,_("Ping Failed."));
                 pingFailed=true;
             }
         #else
@@ -574,7 +579,11 @@ void NewFrame::processInput(wxString input)
                 if(loss.ToDouble(&value))
                 {
                     if(value!=0)
+                    {
+                        saveLog(LOG_INFORMATION,_("Ping Failed."));
                         pingFailed=true;
+                    }
+
                 }
             }
         #endif
@@ -590,7 +599,8 @@ bool NewFrame::connectToPrinter(wxString hostname)
         //wxDatagramSocket sock(addrLocal);
         if (!sock->IsOk())
         {
-            wxMessageBox(_("Failed to create UDP socket"), _("Error"), wxICON_ERROR);
+            wxMessageBox(_("Failed to create UDP socket."), _("Error"), wxICON_ERROR);
+            saveLog(LOG_INFORMATION,_("Failed to create UDP socket."));
             return false;
         }
 
@@ -620,11 +630,13 @@ bool NewFrame::connectToPrinter(wxString hostname)
         btnStart->Enable();
         PollTimer.Stop();
         WatchDogTimer.Stop();
+        saveLog(LOG_INFORMATION,_("Connected to printer running at IP ")+hostname);
         return true;
     }
     else
     {
         wxMessageBox(_("The address cannot be reached."), _("Error"), wxICON_ERROR);
+        saveLog(LOG_INFORMATION,_("The address ") + hostname + _(" cannot be reached."));
         return false;
     }
 
@@ -670,8 +682,12 @@ void NewFrame::disconnectFromPrinter()
         progressFile->SetValue(0);
         PrintProgress->SetValue(0);
         btnStart->Disable();
+        saveLog(LOG_INFORMATION,_("Printer Disconnected"));
     }
-    catch (...) {}
+    catch (std::exception &e)
+    {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
+    }
 
 }
 void NewFrame::setStatusMessages(wxString message1, wxString message2, wxString message3)
@@ -683,6 +699,7 @@ void NewFrame::setStatusMessages(wxString message1, wxString message2, wxString 
     if (message3 != "prev")
         msges[2] = message3;
     SetStatusText(msges[0] + " " + msges[1] + " " + msges[2], 0);
+    saveLog(LOG_INFORMATION,msges[0] + " " + msges[1] + " " + msges[2]);
 }
 void NewFrame::sendCmdToPrinter(wxString cmd)
 {
@@ -694,17 +711,21 @@ void NewFrame::sendCmdToPrinter(wxString cmd)
         strcpy(tempBuffer, (const char*)cmd.mb_str(wxConvUTF8)); // buf will now contain the command
         tempBuffer[sendSize] = '\0';
         tempBuffer[sendSize + 1] = '\0';
+        saveLog(LOG_INFORMATION,wxString::Format(wxT("Send to printer \"%s\""), tempBuffer));
         WatchDogTimer.Start(replyTimeout, true);
         if (sock->SendTo(*addrPeer, tempBuffer, sendSize).LastCount() != sendSize)
         {
             wxMessageBox(_("Failed to send data"), _("Error"), wxICON_ERROR);
+            saveLog(LOG_ERROR,_("Failed to send data"));
             return;
         }
         free(tempBuffer);
     }
-    catch(...)
+    catch (std::exception &e)
     {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
         wxMessageBox(_("Failed to send data"), _("Error"), wxICON_ERROR);
+        saveLog(LOG_ERROR,_("Failed to send data"));
     }
 
 }
@@ -718,12 +739,15 @@ void NewFrame::sendCmdToPrinter(uint8_t* cmd, unsigned int sendSize)
         if (sock->SendTo(*addrPeer, cmd, sendSize).LastCount() != sendSize)
         {
             wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+            saveLog(LOG_ERROR,_("Failed to send data"));
             return;
         }
     }
-    catch(...)
+    catch (std::exception &e)
     {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
         wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+        saveLog(LOG_ERROR,_("Failed to send data"));
     }
 }
 
@@ -738,7 +762,8 @@ void NewFrame::broadcastOverUDP(wxString broadCastHost,uint8_t* cmd, unsigned in
 		m_Listen_Socket = new wxDatagramSocket(m_LocalAddress, wxSOCKET_REUSEADDR);
 		if (m_Listen_Socket->Error())
 		{
-			wxLogError(_("Could not open Datagram Socket\n\n"));
+			wxLogError(_("Could not open Datagram Socket"));
+			saveLog(LOG_ERROR,_("Could not open Datagram Socket"));
 			return;
 		}
 		else
@@ -767,13 +792,17 @@ void NewFrame::broadcastOverUDP(wxString broadCastHost,uint8_t* cmd, unsigned in
 
 			if (m_Listen_Socket->Error())
 			{
-				wxLogMessage(_T("SendTo Error: %d"), m_Listen_Socket->LastError());
+				//wxLogMessage(_T("SendTo Error: %d"), m_Listen_Socket->LastError());
+				saveLog(LOG_ERROR,wxString::Format(wxT("SendTo Error: %d"), m_Listen_Socket->LastError()));
 			}
+			saveLog(LOG_INFORMATION,wxString::Format(wxT("Send broadcast message to %s"), broadCastHost));
 		}
 	}
-	catch (...)
-	{
+    catch (std::exception &e)
+    {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
 		wxMessageBox(_("failed to send data"), _("Error"), wxICON_ERROR);
+		saveLog(LOG_ERROR,_("Failed to send data"));
 	}
 }
 
@@ -800,6 +829,7 @@ wxArrayString NewFrame::getBlockingBroadcastReply(wxString broadcastHostname)
 				if (name != "00_NO_NAME_00")
 				{
 					ipArray.Add(host);
+					saveLog(LOG_INFORMATION,wxString::Format(wxT("Received reply from IP %s"), host));
 					//comboIP->Insert(host, itemIndex);
 					//comboIP->SetValue(host);
 					itemIndex++;
@@ -810,10 +840,11 @@ wxArrayString NewFrame::getBlockingBroadcastReply(wxString broadcastHostname)
 		free(m_Listen_Socket);
 		m_Listen_Socket = NULL;
 
-
-
 	}
-	catch (...) {}
+    catch (std::exception &e)
+    {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
+    }
 	return ipArray;
 }
 
@@ -826,8 +857,12 @@ void NewFrame::getAsyncReply()
         sockThread = new MyThread(this);
         sockThread->Create();
         sockThread->Run();
+
     }
-    catch (...) {}
+    catch (std::exception &e)
+    {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
+    }
 }
 
 void NewFrame::getBlockingReply()
@@ -837,9 +872,13 @@ void NewFrame::getBlockingReply()
         memset(&receivedBuf[0], 0, sizeof(receivedBuf));
         sock->SetTimeout((long)(replyTimeout / 1000));
         numRead = sock->RecvFrom(*addrPeer, receivedBuf, sizeof(receivedBuf)).LastCount();
+        saveLog(LOG_INFORMATION,_("Received data from Printer. Blocking receive"));
         WatchDogTimer.Stop();
     }
-    catch (...) {}
+    catch (std::exception &e)
+    {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
+    }
 }
 
 void NewFrame::clearListControl()
@@ -857,6 +896,7 @@ void NewFrame::handleResponse()
 {
 
     WatchDogTimer.Stop();
+    saveLog(LOG_INFORMATION,_("Received data from Printer. Async receive"));
     if (gcodeCmd.isCmd("M4002"))       //Gcode to read version info from printer
     {
         wxString tempStr = receivedBuf;
@@ -871,6 +911,7 @@ void NewFrame::handleResponse()
             getBlockingReply();
         updatefileList();
 		PollTimer.Start(300);				//Get printer status if possible
+		saveLog(LOG_INFORMATION,_("Received version information from printer. Reply for M4002"));
     }
     else if (gcodeCmd.isCmd("M20"))       //Gcode to read the filelist
     {
@@ -922,6 +963,7 @@ void NewFrame::handleResponse()
                 {
                     startList = false;                    //File list ended don't read any more lines
                     endList = true;
+                    saveLog(LOG_INFORMATION,_("Received File list from printer. Reply for M20"));
                 }
             }
         }
@@ -959,6 +1001,7 @@ void NewFrame::handleResponse()
         PollTimer.Start(pollingInterval);
         setStatusMessages("prev", _("Printing"), "");
         PrintProgress->SetValue(0);
+        saveLog(LOG_INFORMATION,_("Start printing. Reply to M6030"));
         //wxMessageBox(wxString::Format(wxT("%s"), receivedText));
     }
     else if (gcodeCmd.isCmd("M6032"))       //Gcode to Download File
@@ -994,11 +1037,13 @@ void NewFrame::handleResponse()
                 else        //It errored out after one retry just give up and show the error message
                 {
                     wxMessageBox(errorIfAny, _("Error"), wxICON_ERROR);
+                    saveLog(LOG_ERROR,errorIfAny);
                 }
             }
         }
         if (downloadStarted)            //Download has started. Issue the M3000 command to start the download process
         {
+            saveLog(LOG_INFORMATION,_("Start downloading file."));
             while (sock->IsData())               //get rid of extra messages from the sockets buffer as it will confuse the program
                 getBlockingReply();
             if (downloadFileCurrentLength<downloadFileLength)        //Should be but still check if that's the case or not
@@ -1095,9 +1140,15 @@ void NewFrame::handleResponse()
             photonFile->Flush();
             photonFile->Close();
             if (downloadFileCurrentLength >= downloadFileLength)
+            {
                 wxMessageBox(_("Download finished."), _("Information"), wxOK | wxICON_INFORMATION | wxCENTER);
+                saveLog(LOG_INFORMATION,_("Download finished."));
+            }
             else
+            {
                 wxMessageBox(_("Failed to download file. Please retry"), _("Warning"), wxOK | wxICON_EXCLAMATION | wxCENTER);
+                saveLog(LOG_WARNING,_("Failed to download file. Please retry"));
+            }
             downloadStarted = false;
             downloadFileLength = -1;
             downloadFileCurrentLength = -1;
@@ -1114,6 +1165,7 @@ void NewFrame::handleResponse()
         btnPause->Update();
         PollTimer.Stop();
         setStatusMessages("prev", _("Paused"), "");
+        saveLog(LOG_INFORMATION,_("Pause printing. Reply to M25"));
         //wxMessageBox(wxString::Format(wxT("%s"), receivedText));
     }
     else if (gcodeCmd.isCmd("M27"))       //Gcode for getting print status
@@ -1124,6 +1176,7 @@ void NewFrame::handleResponse()
         wxString errorIfAny = isError(receivedText);
         if (errorIfAny.Length() <= 0)
         {
+            saveLog(LOG_INFORMATION,_("Get status message from printer. Reply to M27"));
             PollTimer.Start(pollingInterval);
             wxStringTokenizer temp(receivedText.Trim(), " ");
             wxString token;
@@ -1180,7 +1233,7 @@ void NewFrame::handleResponse()
         gcodeCmd.setParameter("");
         PollTimer.Start(pollingInterval);
         setStatusMessages("prev", _("Printing"), "");
-        //wxMessageBox(wxString::Format(wxT("%s"), receivedText));
+        saveLog(LOG_INFORMATION,_("Resume printing. Reply to M24"));
     }
 
     else if (gcodeCmd.isCmd("M114"))         //Query Z
@@ -1189,6 +1242,7 @@ void NewFrame::handleResponse()
         double zPosition = getValue(receivedText, "Z:", -1);
         while (sock->IsData())               //get rid of extra messages from the sockets buffer as it will confuse the program
             getBlockingReply();
+        saveLog(LOG_INFORMATION,_("Query the Z height. Reply to M114"));
         setStatusMessages("prev", "prev", wxString::Format(wxT(" Z = %.2f mm"), zPosition));
     }
     else if (gcodeCmd.isCmd("M33"))         //Stopping a print
@@ -1207,6 +1261,7 @@ void NewFrame::handleResponse()
         else
         {
             wxMessageBox(errorIfAny, _("Error"), wxICON_ERROR);
+            saveLog(LOG_ERROR,errorIfAny);
         }
 
 
@@ -1219,7 +1274,11 @@ void NewFrame::handleResponse()
         //sendCmdToPrinter(gcodeCmd.getGcodeCmd());
         wxString receivedText = receivedBuf;
         if (receivedText.Length()>8)         //Don't show the OK N:6 message that you get on stopping of a print
+        {
+
             wxMessageBox(wxString::Format(wxT("%s"), receivedText), _("Information"), wxOK | wxICON_INFORMATION | wxCENTER);
+            saveLog(LOG_INFORMATION,wxString::Format(wxT("%s"), receivedText));
+        }
         else
         {
             setStatusMessages("prev", _("Stopped"), "");
@@ -1229,6 +1288,7 @@ void NewFrame::handleResponse()
             ispaused = false;
             isPrinting = false;
             PollTimer.Stop();
+            saveLog(LOG_INFORMATION,_("Stop printing. Reply to M29"));
         }
 
         while (sock->IsData())               //get rid of extra messages from the sockets buffer as it will confuse the program
@@ -1243,14 +1303,18 @@ void NewFrame::handleResponse()
         //sendCmdToPrinter(gcodeCmd.getGcodeCmd());
         wxString receivedText = receivedBuf;
         wxMessageBox(wxString::Format(wxT("%s"), receivedText), _("Information"), wxOK | wxICON_INFORMATION | wxCENTER);
+        saveLog(LOG_INFORMATION,wxString::Format(wxT("%s"), receivedText));
         while (sock->IsData())               //get rid of extra messages from the sockets buffer as it will confuse the program
             getBlockingReply();
+        saveLog(LOG_INFORMATION,_("Delete a File. Reply to M30"));
         updatefileList();
+
     }
     else if (gcodeCmd.isCmd("M28"))         //Uploading a File
     {
         wxString receivedText = receivedBuf;
         //wxMessageBox(wxString::Format(wxT("%s"), receivedText));
+        saveLog(LOG_INFORMATION,_("Upload a File. Reply to M28"));
         int chunckSize = 0x500;
         uint8_t *buffer = (uint8_t*)malloc((chunckSize + 6) * sizeof(uint8_t));
         ssize_t index = 0;
@@ -1335,16 +1399,31 @@ void NewFrame:: saveSettings()
 	{
 		if (comboIP->GetString(i).Trim() != ipAddress.Trim())
 		{
-			ipList = wxString(',') + comboIP->GetString(i).Trim() +ipList;
+		    if(StaticIPList.Index(comboIP->GetString(i).Trim())==wxNOT_FOUND)
+                ipList = wxString(',') + comboIP->GetString(i).Trim() +ipList;
 		}
 	}
 	ipList = ipAddress + ipList;
     config->Write( wxT("IP"), ipAddress );
 	config->Write(wxT("IPList"), ipList);
+	ipList=wxEmptyString;
+    for (unsigned int i = 0; i < StaticIPList.GetCount();i++)
+    {
+        if(i==0)
+            ipList =  StaticIPList[i].Trim();
+        else
+            ipList = ipList + wxString(',') + StaticIPList[i].Trim();
+    }
+    config->Write(wxT("StaticIPList"), ipList);
     config->Write(wxT("pingTimeOut"),pingTimeOut);
     config->Write(wxT("replyTimeout"),replyTimeout);
     config->Write(wxT("port"),port);
     config->Write(wxT("pollingInterval"),pollingInterval);
+    saveLog(LOG_INFORMATION,_("Save All settings."));
+    if(enableLogging)
+        config->Write(wxT("enableLogging"),1);
+    else
+        config->Write(wxT("enableLogging"),0);
     config->Flush();
     delete config;
 }
@@ -1361,20 +1440,45 @@ void NewFrame:: readSettings()
         config->Read(wxT("replyTimeout"),&replyTimeout,2000);
         config->Read(wxT("port"),&port,3000);
         config->Read(wxT("pollingInterval"),&pollingInterval,1000);
-        delete config;
+        double tempRead=0;
+        config->Read(wxT("enableLogging"),&tempRead,1);
+        if(tempRead==1)
+            enableLogging=true;
+        else
+            enableLogging=false;
 		comboIP->Clear();
 		int ipIndex = 0;
 		wxStringTokenizer temp(ipList, ",");
 		while (temp.HasMoreTokens())
 		{
 			wxString token = temp.GetNextToken();
-			if (token.Trim().Length() > 4)
+			if(IsIPAddress(token))
 			{
 				comboIP->Insert(token, ipIndex);
 				ipIndex++;
 			}
 		}
-		comboIP->SetValue(ipAddress);
+
+        ipList = wxEmptyString;
+        config->Read(wxT("StaticIPList"), &ipList, wxEmptyString);
+        if(ipList.Length()>4)
+        {
+            StaticIPList.clear();
+            wxStringTokenizer temp(ipList, ",");
+            while (temp.HasMoreTokens())
+            {
+                wxString token = temp.GetNextToken();
+                if(IsIPAddress(token))
+                {
+                    StaticIPList.Add(token);
+                    comboIP->Append(token);
+                }
+
+            }
+        }
+        comboIP->SetValue(ipAddress);
+		delete config;
+		saveLog(LOG_INFORMATION,_("Read All settings."));
     }
     else
 		comboIP->SetValue("192.168.1.222");
@@ -1383,6 +1487,12 @@ void NewFrame:: readSettings()
 void NewFrame::OnbtnConnectClick(wxCommandEvent& event)
 {
     //wxMessageBox(_("Connect to Printer\n"), _("About Connect"), wxOK | wxICON_INFORMATION, this);
+    if(!IsIPAddress(comboIP->GetValue()))
+    {
+        wxMessageBox(_("Not a valid IP address"), _("Error"), wxOK | wxICON_ERROR | wxCENTER);
+        saveLog(LOG_ERROR,_("Not a valid IP address"));
+        return;
+    }
     if (!isconnected)            //Connect to the printer if it not connected
     {
         if(connectToPrinter(comboIP->GetValue()))
@@ -1423,6 +1533,7 @@ void NewFrame::OnbtnStartClick(wxCommandEvent& event)
     else
     {
         wxMessageBox(_("Please select a file before starting a print."), _("Warning"), wxOK | wxICON_EXCLAMATION | wxCENTER);
+        saveLog(LOG_INFORMATION,_("Please select a file before starting a print."));
     }
 }
 
@@ -1476,6 +1587,7 @@ void NewFrame::OnbtnDeleteClick(wxCommandEvent& event)
     else
     {
         wxMessageBox(_("Please select a file to delete."), _("Warning"), wxOK | wxICON_EXCLAMATION | wxCENTER);
+        saveLog(LOG_INFORMATION,_("Delete clicked without selecting a file"));
     }
 }
 void NewFrame::AsyncPingPrinter(wxString ipAddress,int Timeout)
@@ -1531,7 +1643,7 @@ void NewFrame::OnbtnUploadClick(wxCommandEvent& event)
         progressFile->SetValue(0);
         sendCmdToPrinter(gcodeCmd.getGcodeCmd());
         getAsyncReply();
-
+        saveLog(LOG_INFORMATION,wxString::Format("Upload file %s", photonFileName));
         //wxMessageBox(CurrentDocPath);
     }
 }
@@ -1562,12 +1674,14 @@ void NewFrame::OnbtnDownloadClick(wxCommandEvent& event)
             else
             {
                 wxMessageBox(_("Failed to write file. Make sure you have write access."), _("Error"), wxOK | wxICON_ERROR | wxCENTER);
+                saveLog(LOG_INFORMATION,_("Failed to write file. Make sure you have write access."));
             }
         }
     }
     else
     {
         wxMessageBox(_("Please select a file to download."), _("Warning"), wxOK | wxICON_EXCLAMATION | wxCENTER);
+        saveLog(LOG_INFORMATION,_("Download clicked without selecting a file."));
     }
 
 
@@ -1576,6 +1690,7 @@ void NewFrame::OnbtnDownloadClick(wxCommandEvent& event)
 void NewFrame::OnMyThread(wxCommandEvent& event)
 {
     //wxLogMessage("Received %s, %d", receivedBuf, numRead);
+    saveLog(LOG_INFORMATION,_("Async Callback from networking thread."));
     handleResponse();
 }
 
@@ -1595,8 +1710,12 @@ void NewFrame::getPrintStatus()
        {
            disconnectFromPrinter();
            wxMessageBox(_("Lost connection to the printer."), _("Error"), wxOK | wxICON_ERROR | wxCENTER);
+           saveLog(LOG_INFORMATION,_("Lost connection to the printer."));
        }
-       catch (...) {}
+        catch (std::exception &e)
+        {
+            saveLog(LOG_EXCEPTION,wxString(e.what()));
+        }
    }
 }
 
@@ -1613,6 +1732,10 @@ void NewFrame::OnPollTimerTrigger(wxTimerEvent& event)
         pingFailed=false;                                       //assume the ping is not going to fail
         isPingRunning=true;
         AsyncPingPrinter(addrPeer->IPAddress(),(int)pingTimeOut);
+    }
+    else
+    {
+        saveLog(LOG_WARNING,_("Still running a previous Ping."));
     }
 }
 
@@ -1657,9 +1780,13 @@ void NewFrame::OnWatchDogTimerTrigger(wxTimerEvent& event)
             PrintProgress->SetValue(0);
             int replyTimeoutSeconds = (int)(replyTimeout/1000);
             wxMessageBox(_("Failed to receive any response from the printer in ") + wxString::Format(wxT("%d"), replyTimeoutSeconds) +  _(" Seconds.\nPlease try re-connecting"), _("Error"), wxOK | wxICON_ERROR | wxCENTER);
+            saveLog(LOG_INFORMATION,_("Failed to receive any response from the printer in ") + wxString::Format(wxT("%d"), replyTimeoutSeconds) +  _(" Seconds.\nPlease try re-connecting"));
         }
     }
-    catch (...) {}
+    catch (std::exception &e)
+    {
+        saveLog(LOG_EXCEPTION,wxString(e.what()));
+    }
 }
 
 void NewFrame::OnbtnSettingsClick(wxCommandEvent& event)
@@ -1667,6 +1794,7 @@ void NewFrame::OnbtnSettingsClick(wxCommandEvent& event)
     SettingsDialog *dlg = new SettingsDialog(this);
     dlg->Show();
     btnSettings->Disable();
+    saveLog(LOG_INFORMATION,_("Show Settings Dialog."));
 }
 
 void NewFrame::OnProcessPollTimerTrigger(wxTimerEvent&  WXUNUSED(event))
@@ -1743,5 +1871,6 @@ void NewFrame::OnbtnSearchPrinterClick(wxCommandEvent& event)
 	{
 		setStatusMessages(_("No printers discovered"), "", "");
 		wxMessageBox(_("No printers detected in the network.\nHowever you can still connect to a printer if its IP address is accesible"), _("Information"), wxOK | wxICON_INFORMATION | wxCENTER);
+		saveLog(LOG_INFORMATION,_("No printers discovered"));
 	}
 }
